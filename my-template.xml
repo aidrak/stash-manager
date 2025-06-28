@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>stash-manager</Name>
-  <Repository>aidrak/stash-manager</Repository>
-  <Registry>https://hub.docker.com/r/aidrak/stash-manager</Registry>
+  <Repository>ghcr.io/aidrak/stash-manager:latest</Repository>
+  <Registry>https://github.com/aidrak/stash-manager/pkgs/container/stash-manager</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>bash</Shell>
