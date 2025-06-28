@@ -1,0 +1,64 @@
+# Stash Manager - Unified Configuration Sample
+
+# --- General Settings ---
+logs:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+
+database:
+  path: /config/stash_manager.db
+
+cron:
+  frequency: 60 # in minutes
+
+# --- Stash Settings ---
+stash:
+  url: http://stash:9999
+  api_key: YOUR_STASH_API_KEY
+  media_path: /media
+
+# --- Whisparr Settings ---
+whisparr:
+  url: http://whisparr:6969
+  api_key: YOUR_WHISPARR_API_KEY
+  root_folder: /tv
+  stashdb_api_key: YOUR_STASHDB_API_KEY # Optional
+  run_interval_minutes: 240
+  max_scene_age_days: 2
+
+# --- Processing Settings ---
+processing:
+  delay_seconds: 10
+  stability_threshold: 30
+  job_timeout: 1800
+  poll_interval: 10
+  scene_limit: 10000
+  performer_limit: 5000
+
+# --- Endpoints ---
+endpoints:
+  stashdb: https://stashdb.org/graphql
+  tpdb: https://theporndb.net/graphql
+
+# --- Filter Controls ---
+filter_controls:
+  enable_title_filters: false
+  enable_performer_filters: false
+  enable_studio_filters: false
+  enable_ethnicity_filters: false
+  enable_breast_size_filters: false
+  enable_tag_filters: false
+
+# --- Filters ---
+filters:
+  performer_whitelist: []
+  performer_blacklist: []
+  include_studios: []
+  exclude_studios: []
+  include_ethnicities: []
+  exclude_ethnicities: []
+  include_tags: []
+  exclude_tags: []
+  title_include_words: []
+  title_exclude_words: []
+  include_breast_sizes: []
+  exclude_breast_sizes: []
