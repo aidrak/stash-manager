@@ -1,29 +1,15 @@
 # Stash Manager - Unified Configuration Sample
+#
+# Environment-specific settings (URLs, API keys, paths) are configured
+# via environment variables in your .env file or Unraid template.
+# This file is for configuring application behavior and filters.
 
 # --- General Settings ---
 logs:
   level: INFO  # DEBUG, INFO, WARNING, ERROR
 
-database:
-  path: /config/stash_manager.db
-
 cron:
   frequency: 60 # in minutes
-
-# --- Stash Settings ---
-stash:
-  url: http://stash:9999
-  api_key: YOUR_STASH_API_KEY
-  media_path: /media
-
-# --- Whisparr Settings ---
-whisparr:
-  url: http://whisparr:6969
-  api_key: YOUR_WHISPARR_API_KEY
-  root_folder: /tv
-  stashdb_api_key: YOUR_STASHDB_API_KEY # Optional
-  run_interval_minutes: 240
-  max_scene_age_days: 2
 
 # --- Processing Settings ---
 processing:

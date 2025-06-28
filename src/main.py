@@ -1,6 +1,7 @@
 import logging
 import schedule
 import time
+import os
 from src.config import load_config
 from src.db import initialize_db
 from src.processor import process_scenes
@@ -8,7 +9,7 @@ from src.stash_api import StashApi
 
 def main():
     """Main function to run the Stash Manager."""
-    config = load_config()
+    config = load_config(os.environ.get('CONFIG_PATH', '/config/config.yaml'))
     if not config:
         logging.error("Exiting due to missing configuration.")
         return
@@ -18,7 +19,7 @@ def main():
     logging.basicConfig(level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     # Initialize database
-    db_path = config.get('database', {}).get('path', '/config/stash_manager.db')
+    db_path = os.environ.get('DB_PATH', '/config/stash_manager.db')
     initialize_db(db_path)
 
     # Initialize Stash API

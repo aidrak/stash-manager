@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>stash-manager</Name>
+  <Repository>aidrak/stash-manager</Repository>
+  <Registry>https://hub.docker.com/r/aidrak/stash-manager</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/aidrak/stash-manager</Support>
+  <Project>https://github.com/aidrak/stash-manager</Project>
+  <Overview>Automated bridge between Stash and Whisparr for intelligent adult content processing and filtering. Monitors Stash for new scenes and automatically processes them through customizable filters before integrating with Whisparr for content management.&#xD;
+&#xD;
+Features:&#xD;
+- Advanced scene filtering by performers, studios, tags, and attributes&#xD;
+- Automated Stash to Whisparr integration&#xD;
+- Configurable processing schedules&#xD;
+- SQLite database for tracking processed content&#xD;
+- StashDB integration support&#xD;
+- Comprehensive logging and error handling&#xD;
+&#xD;
+Requires active Stash and Whisparr instances with API access.</Overview>
+  <Category>MediaApp:Video</Category>
+  <WebUI/>
+  <TemplateURL>https://raw.githubusercontent.com/aidrak/stash-manager/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/aidrak/stash-manager/main/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>Stash: Active Stash instance with API access&#xD;
+Whisparr: Active Whisparr instance with API access</Requires>
+  <Config Name="Config Path" Target="CONFIG_PATH" Default="/mnt/user/appdata/stash-manager/config" Mode="rw" Description="Path to your configuration directory" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/stash-manager/config</Config>
+  <Config Name="Media Path" Target="MEDIA_PATH" Default="/mnt/user/media" Mode="ro" Description="Path to your media files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media</Config>
+  <Config Name="Stash URL" Target="STASH_URL" Default="http://stash:9999" Mode="" Description="URL to your Stash instance" Type="Variable" Display="always" Required="true" Mask="false">http://stash:9999</Config>
+  <Config Name="Stash API Key" Target="STASH_API_KEY" Default="" Mode="" Description="API key for Stash" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Whisparr URL" Target="WHISPARR_URL" Default="http://whisparr:6969" Mode="" Description="URL to your Whisparr instance" Type="Variable" Display="always" Required="true" Mask="false">http://whisparr:6969</Config>
+  <Config Name="Whisparr API Key" Target="WHISPARR_API_KEY" Default="" Mode="" Description="API key for Whisparr" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="StashDB API Key" Target="STASHDB_API_KEY" Default="" Mode="" Description="Optional StashDB API key" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="TZ" Target="TZ" Default="America/New_York" Mode="" Description="Timezone for scheduling and logging" Type="Variable" Display="advanced" Required="false" Mask="false">America/New_York</Config>
+</Container>
