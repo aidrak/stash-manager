@@ -128,32 +128,40 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
         rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
         for s_val in scene_value_lower:
             for r_val in rule_values:
-                # Special handling for cup sizes - "d" should match "dd", "ddd", etc.
+                is_match = False
                 if field == 'tags.name':
-                    # Exact match for tags
-                    if r_val == s_val:
-                        original_index = scene_value_lower.index(s_val)
-                        original_value = scene_value[original_index]
-                        return True, original_value
-                elif _is_cup_size_match(s_val, r_val) or r_val in s_val:
-                    # Substring match for other fields
+                    is_match = (r_val == s_val)
+                else:
+                    is_match = _is_cup_size_match(s_val, r_val) or (r_val in s_val)
+
+                if is_match:
                     original_index = scene_value_lower.index(s_val)
                     original_value = scene_value[original_index]
                     return True, original_value
         return False, None
-    
+
     if operator == 'exclude':
         rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
-        # "Does not contain" check
-        if field == 'tags.name':
-            # Exact match for tags
-            if not any(r_val == s_val for s_val in scene_value_lower for r_val in rule_values):
-                return True, f"no {', '.join(rule_values)} found"
-        elif not any(r_val in s_val for s_val in scene_value_lower for r_val in rule_values):
-            # Substring match for other fields
-            return True, f"no {', '.join(rule_values)} found"
         
-        return False, None
+        found_match = False
+        for s_val in scene_value_lower:
+            for r_val in rule_values:
+                is_match = False
+                if field == 'tags.name':
+                    is_match = (r_val == s_val)
+                else:
+                    is_match = (r_val in s_val)
+                
+                if is_match:
+                    found_match = True
+                    break
+            if found_match:
+                break
+        
+        if not found_match:
+            return True, f"no {', '.join(rule_values)} found"
+        else:
+            return False, None
     
     if operator in ['is_larger_than', 'is_smaller_than']:
         try:
