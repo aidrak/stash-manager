@@ -8,7 +8,6 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - PYTHONPATH=/home/appuser
       - TZ=America/Chicago
     env_file: .env
     volumes:
