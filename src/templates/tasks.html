@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stash Manager - Tasks</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} mt-3 alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="mt-5">Tasks</h1>
+            <div>
+                <a href="{{ url_for('add_scenes') }}" class="btn btn-secondary mt-5">Add Scenes</a>
+                <a href="{{ url_for('clean_scenes') }}" class="btn btn-secondary mt-5">Clean Scenes</a>
+                <a href="{{ url_for('tasks') }}" class="btn btn-primary mt-5 active">Tasks</a>
+                <a href="{{ url_for('settings') }}" class="btn btn-secondary mt-5">Settings</a>
+            </div>
+        </div>
+        <p class="lead">This page shows the status of the scheduled jobs and allows you to trigger them manually.</p>
+
+        <table class="table mt-4">
+            <thead>
+                <tr>
+                    <th>Job Name</th>
+                    <th>Interval</th>
+                    <th>Last Execution</th>
+                    <th>Next Execution</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Add New Scenes</td>
+                    <td>
+                        {% if config.jobs.add_new_scenes_schedule == 240 %}4 hours{% endif %}
+                        {% if config.jobs.add_new_scenes_schedule == 360 %}6 hours{% endif %}
+                        {% if config.jobs.add_new_scenes_schedule == 720 %}12 hours{% endif %}
+                        {% if config.jobs.add_new_scenes_schedule == 1440 %}1 day{% endif %}
+                        {% if config.jobs.add_new_scenes_schedule == 2880 %}2 days{% endif %}
+                        {% if config.jobs.add_new_scenes_schedule not in [240, 360, 720, 1440, 2880] %}{{ config.jobs.add_new_scenes_schedule }} minutes{% endif %}
+                    </td>
+                    <td>{{ last_run_times.add_new_scenes }}</td>
+                    <td>{{ next_run_times.add_new_scenes }}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm run-job-btn" 
+                                data-job="add_new_scenes" 
+                                data-url="{{ url_for('run_job', job_name='add_new_scenes') }}">
+                            <span class="btn-text">Run Now</span>
+                            <span class="btn-spinner d-none">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                Running...
+                            </span>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Clean Existing Scenes</td>
+                    <td>
+                        {% if config.jobs.clean_existing_scenes_schedule == 240 %}4 hours{% endif %}
+                        {% if config.jobs.clean_existing_scenes_schedule == 360 %}6 hours{% endif %}
+                        {% if config.jobs.clean_existing_scenes_schedule == 720 %}12 hours{% endif %}
+                        {% if config.jobs.clean_existing_scenes_schedule == 1440 %}1 day{% endif %}
+                        {% if config.jobs.clean_existing_scenes_schedule == 2880 %}2 days{% endif %}
+                        {% if config.jobs.clean_existing_scenes_schedule not in [240, 360, 720, 1440, 2880] %}{{ config.jobs.clean_existing_scenes_schedule }} minutes{% endif %}
+                    </td>
+                    <td>{{ last_run_times.clean_existing_scenes }}</td>
+                    <td>{{ next_run_times.clean_existing_scenes }}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm run-job-btn" 
+                                data-job="clean_existing_scenes" 
+                                data-url="{{ url_for('run_job', job_name='clean_existing_scenes') }}">
+                            <span class="btn-text">Run Now</span>
+                            <span class="btn-spinner d-none">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                Running...
+                            </span>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Scan & Identify Scenes</td>
+                    <td>1 day</td>
+                    <td>{{ last_run_times.scan_and_identify }}</td>
+                    <td>{{ next_run_times.scan_and_identify }}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm run-job-btn" 
+                                data-job="identify" 
+                                data-url="{{ url_for('run_job', job_name='identify') }}">
+                            <span class="btn-text">Run Now</span>
+                            <span class="btn-spinner d-none">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                Running...
+                            </span>
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $('.run-job-btn').click(function(e) {
+                e.preventDefault();
+                
+                const button = $(this);
+                const jobName = button.data('job');
+                const url = button.data('url');
+                
+                // Show loading state
+                button.prop('disabled', true);
+                button.find('.btn-text').addClass('d-none');
+                button.find('.btn-spinner').removeClass('d-none');
+                
+                // Make the request
+                fetch(url, {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    resetButton(button);
+                    if (data.success) {
+                        showAlert('success', data.message);
+                        // Refresh the page after 6 seconds to update Last Execution times
+                        setTimeout(() => {
+                            // Use a smoother reload approach
+                            fetch(window.location.href)
+                                .then(response => response.text())
+                                .then(html => {
+                                    // Extract just the table content and update it
+                                    const parser = new DOMParser();
+                                    const doc = parser.parseFromString(html, 'text/html');
+                                    const newTable = doc.querySelector('table');
+                                    if (newTable) {
+                                        document.querySelector('table').innerHTML = newTable.innerHTML;
+                                    }
+                                })
+                                .catch(() => {
+                                    // Fallback to regular reload if smooth update fails
+                                    window.location.reload();
+                                });
+                        }, 6000);
+                    } else {
+                        showAlert('danger', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resetButton(button);
+                    showAlert('danger', `Error running job '${jobName}': ${error.message}`);
+                });
+            });
+            
+            function resetButton(button) {
+                button.prop('disabled', false);
+                button.find('.btn-text').removeClass('d-none');
+                button.find('.btn-spinner').addClass('d-none');
+            }
+            
+            function showAlert(type, message) {
+                const alertHtml = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                `;
+                $('.container').prepend(alertHtml);
+                
+                // Auto-dismiss after 5 seconds (but allow manual close)
+                setTimeout(function() {
+                    $('.alert:first').alert('close');
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

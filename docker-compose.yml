@@ -5,13 +5,14 @@ services:
       dockerfile: Dockerfile
     container_name: stash-manager
     restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - TZ=America/Chicago
     env_file: .env
     volumes:
-      - /mnt/user/appdata/stash-manager/config:/config
-      # This volume should be the same as your existing stash container's media volume.
-      # The path is set by the MEDIA_PATH variable in the .env file.
-      - ${MEDIA_PATH}:/media
-    # This connects the manager to your existing stash network.
+      - /mnt/user/appdata/stash-manager/config:/home/appuser/config
+      - ${MEDIA_PATH:-./media}:/media
     networks:
       - media_net
 

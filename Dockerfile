@@ -1,29 +1,47 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+# --- Build Stage ---
+FROM python:3.9-slim as builder
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /usr/src/app
 
-# Copy the requirements file into the container at /usr/src/app
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends gcc
+
+# Copy requirements and install Python packages
 COPY requirements.txt ./
+RUN pip wheel --no-cache-dir --wheel-dir /usr/src/app/wheels -r requirements.txt
 
-# Install system dependencies including cron
-RUN apt-get update && apt-get install -y cron
+# --- Final Stage ---
+FROM python:3.9-slim
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Create a non-root user
+RUN useradd --create-home appuser
+WORKDIR /home/appuser
 
-# Copy the rest of the application's code into the container
-COPY . .
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y cron curl iputils-ping --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set execute permissions for the shell scripts
-RUN chmod +x /usr/src/app/entrypoint.sh /usr/src/app/loop-runner.sh
+# Copy installed packages from the build stage
+COPY --from=builder /usr/src/app/wheels /wheels
+RUN pip install --no-cache /wheels/*
 
-# Make port 8000 available to the world outside this container
-EXPOSE 8000
+# Copy application code
+COPY src/ ./src/
+COPY entrypoint.sh .
 
-# Define environment variable
-ENV NAME World
+# Give the new user ownership of the application files
+RUN chown -R appuser:appuser /home/appuser
 
-# Run entrypoint.sh when the container launches
-ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+# Switch to the non-root user
+USER appuser
+
+# Set execute permissions for the entrypoint script
+RUN chmod +x /home/appuser/entrypoint.sh
+
+# Expose the application port
+EXPOSE 5001
+
+# Set the entrypoint
+ENTRYPOINT ["/home/appuser/entrypoint.sh"]

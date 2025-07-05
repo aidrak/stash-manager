@@ -1,40 +1,150 @@
 import logging
-from src.filter import SceneFilter
-from src.stash_api import StashApi
+import os
+from src.add_scenes_filter import AddScenesFilter
+from src.clean_scenes_filter import CleanScenesFilter
+from src.stash_api import StashAPI
 from src.whisparr import WhisparrApi
+from src.config import get_identify_sources
+from src.stashdb_conditions import STASHDB_CONDITIONS
+from src.local_stash_conditions import LOCAL_STASH_CONDITIONS
 
-def process_scenes(config: dict, stash_api: StashApi):
+logger = logging.getLogger(__name__)
+
+def add_new_scenes_to_whisparr(config: dict, stash_api: StashAPI, start_date=None, end_date=None):
     """
-    Processes scenes from Stash, filters them, and adds them to Whisparr.
+    Finds new scenes in StashDB, filters them using AddScenesFilter, and adds them to Whisparr.
     """
-    logging.info("Starting scene processing job.")
+    logger.debug("Entering add_new_scenes_to_whisparr function.")
+    logger.info("=== STARTING ADD NEW SCENES JOB ===")
     
-    # Initialize APIs
-    whisparr_config = config.get('whisparr', {})
-    whisparr_api = WhisparrApi(whisparr_config)
+    # Use dedicated AddScenesFilter with StashDB conditions
+    filter_engine = AddScenesFilter(config, STASHDB_CONDITIONS)
+    whisparr_api = WhisparrApi(config.get('whisparr', {}))
     
-    # Initialize filter
-    scene_filter = SceneFilter(config)
+    search_back_days = config.get('jobs', {}).get('add_new_scenes_search_back_days', 7)
     
-    # Get scenes from Stash
-    scene_limit = config.get('processing', {}).get('scene_limit', 100)
-    all_scenes = stash_api.find_scenes(limit=scene_limit)
+    dry_run = config.get('general', {}).get('dry_run', False)
+    logger.info(f"DRY RUN MODE: {dry_run}")
     
-    if not all_scenes:
-        logging.info("No scenes found in Stash to process.")
+    logger.info("Fetching scenes from StashDB...")
+    stashdb_api_key = os.environ.get('STASHDB_API_KEY')
+    if not stashdb_api_key:
+        logging.error("STASHDB_API_KEY environment variable not set. Cannot fetch scenes.")
         return
-        
-    logging.info(f"Found {len(all_scenes)} scenes to process.")
+    stashdb_api = StashAPI(url="https://stashdb.org", api_key=stashdb_api_key)
     
-    for scene in all_scenes:
-        should_add, reason = scene_filter.should_add_scene(scene)
+    new_scenes = stashdb_api.get_all_scenes(limit=500, start_date=start_date, end_date=end_date)
+    
+    from datetime import datetime, timedelta
+    
+    if start_date and end_date:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    else:
+        start_date = datetime.now() - timedelta(days=search_back_days)
+        end_date = datetime.now()
+
+    filtered_scenes = []
+    for scene in new_scenes:
+        scene_date = datetime.strptime(scene.get('date'), '%Y-%m-%d')
+        if start_date <= scene_date <= end_date:
+            filtered_scenes.append(scene)
+    new_scenes = filtered_scenes
+
+    logger.info(f"=== RETRIEVED {len(new_scenes)} SCENES ===")
+
+    for i, scene in enumerate(new_scenes):
+        scene_title = scene.get('title', 'Untitled')
+        logger.debug(f"Processing scene {i+1}/{len(new_scenes)}: {scene_title}")
+        
+        # Use AddScenesFilter's should_add_scene method
+        should_add, reason = filter_engine.should_add_scene(scene)
         
         if should_add:
-            logging.info(f"Scene '{scene.get('title')}' passed filters. Adding to Whisparr.")
-            # Here you would typically add the scene to a database or directly to Whisparr
-            # For this example, we'll just log it.
-            # Example: whisparr_api.add_series(scene.get('title'))
+            logger.info(f"✅ PASSED: {scene_title} - {reason}")
+            if not dry_run:
+                result = whisparr_api.add_series(scene.get('title'))
+                if result:
+                    logger.info(f"   Successfully added to Whisparr")
+                else:
+                    logger.error(f"   Failed to add to Whisparr")
         else:
-            logging.info(f"Scene '{scene.get('title')}' was filtered out. Reason: {reason}")
-            
-    logging.info("Scene processing job finished.")
+            logger.debug(f"❌ FILTERED: {scene_title} - {reason}")
+            # For rejected scenes, add to Whisparr exclusion list
+            if not dry_run:
+                exclusion_result = whisparr_api.add_to_exclusion_list(scene.get('title'))
+                if exclusion_result:
+                    logger.debug(f"   Added to exclusion list")
+    
+    logger.info("=== COMPLETED ADD NEW SCENES JOB ===")
+
+def clean_existing_scenes_from_stash(config: dict, stash_api: StashAPI):
+    """
+    Scans all existing scenes in local Stash and deletes ones that don't match the CleanScenesFilter.
+    """
+    logger.info("=== STARTING CLEAN EXISTING SCENES JOB ===")
+
+    # Use dedicated CleanScenesFilter with Local Stash conditions
+    filter_engine = CleanScenesFilter(config, LOCAL_STASH_CONDITIONS)
+    
+    dry_run = config.get('general', {}).get('dry_run', False)
+    logger.info(f"DRY RUN MODE: {dry_run}")
+    
+    logger.info("Fetching scenes from local Stash...")
+    all_scenes = stash_api.get_all_scenes()
+    
+    if not all_scenes:
+        logger.info("No scenes found in local Stash.")
+        return
+    
+    logger.info(f"Found {len(all_scenes)} scenes in local Stash")
+    
+    scenes_to_delete = []
+    scenes_to_keep = []
+
+    is_debug_mode = logger.isEnabledFor(logging.DEBUG)
+
+    for i, scene in enumerate(all_scenes):
+        scene_title = scene.get('title', 'Untitled')
+        scene_id = scene.get('id')
+        
+        if is_debug_mode:
+            logger.debug(f"🔍 Processing scene {i+1}/{len(all_scenes)}: {scene_title}")
+        
+        # Use CleanScenesFilter's should_keep_scene method
+        should_keep, reason = filter_engine.should_keep_scene(scene)
+        
+        if should_keep:
+            logger.debug(f"✅ KEEP: {scene_title} - {reason}")
+            scenes_to_keep.append(scene_title)
+        else:
+            logger.info(f"🔥 DELETE: {scene_title} - {reason}")
+            scenes_to_delete.append((scene_id, scene_title))
+    
+    # Summary
+    logger.info(f"\n=== SUMMARY ===")
+    logger.info(f"📊 Total scenes processed: {len(all_scenes)}")
+    logger.info(f"✅ Scenes to keep: {len(scenes_to_keep)}")
+    logger.info(f"🔥 Scenes to delete: {len(scenes_to_delete)}")
+    
+    if scenes_to_delete:
+        logger.info(f"\n🔥 SCENES TO BE DELETED:")
+        for _, title in scenes_to_delete:  # Show all scenes
+            logger.info(f"   - {title}")
+    
+    # Actually delete the scenes (if not dry run)
+    if not dry_run and scenes_to_delete:
+        logger.info(f"\n🔥 DELETING {len(scenes_to_delete)} SCENES...")
+        for scene_id, scene_title in scenes_to_delete:
+            logger.info(f"   Deleting: {scene_title}")
+            success = stash_api.delete_scene(scene_id, delete_file=True)
+            if success:
+                logger.info(f"   ✅ Successfully deleted")
+            else:
+                logger.error(f"   ❌ Failed to delete")
+    elif dry_run and scenes_to_delete:
+        logger.info(f"\n💧 DRY RUN: Would delete {len(scenes_to_delete)} scenes")
+    else:
+        logger.info("\n✅ No scenes matched the deletion criteria.")
+    
+    logger.info("=== COMPLETED CLEAN EXISTING SCENES JOB ===")

@@ -1,5 +1,6 @@
 # Ignore sensitive configuration files
 config/config.yaml
+.env
 
 # Ignore VS Code server files
 .vscode-server/

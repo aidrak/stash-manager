@@ -1,5 +1,6 @@
 import requests
 import logging
+import urllib.parse
 
 class WhisparrApi:
     """A class to interact with the Whisparr API."""
@@ -7,11 +8,11 @@ class WhisparrApi:
     def __init__(self, config):
         self.url = config.get('url')
         self.api_key = config.get('api_key')
-        self.root_folder = config.get('root_folder')
+        self.root_folder = config.get('root_folder', '/data')
 
     def _call_api(self, endpoint, method='GET', params=None, json=None):
         """A helper function to call the Whisparr API."""
-        headers = {'X-Api-Key': self.api_key}
+        headers = {'X-Api-Key': self.api_key, 'Content-Type': 'application/json'}
         full_url = f"{self.url}/api/v3/{endpoint}"
         
         try:
@@ -26,33 +27,108 @@ class WhisparrApi:
             logging.error(f"Error calling Whisparr API: {e}")
             return None
 
-    def add_series(self, title, tvdb_id=None):
-        """Adds a new series to Whisparr."""
-        # First, lookup the series to get the TVDB ID if not provided
-        if not tvdb_id:
-            lookup_result = self._call_api('series/lookup', params={'term': title})
-            if not lookup_result:
-                logging.error(f"Could not find series '{title}' on TVDB.")
-                return None
-            
-            # For simplicity, we'll take the first result.
-            # In a real application, you might want to handle multiple results.
-            if lookup_result:
-                tvdb_id = lookup_result[0].get('tvdbId')
+    def search_scene(self, title):
+        """Search for a scene in Whisparr's database."""
+        encoded_title = urllib.parse.quote(title)
+        search_url = f"lookup/scene?term={encoded_title}"
         
-        if not tvdb_id:
-            logging.error(f"Could not determine TVDB ID for '{title}'.")
+        result = self._call_api(search_url)
+        
+        if result and len(result) > 0:
+            return result[0]  # Return first match
+        else:
             return None
 
-        # Now, add the series
-        series_data = {
-            "title": title,
-            "tvdbId": tvdb_id,
-            "qualityProfileId": 1,  # This should be configured
+    def check_scene_exists(self, foreign_id):
+        """Check if a scene already exists in Whisparr."""
+        movies = self._call_api('movie')
+        if movies:
+            for movie in movies:
+                if movie.get('foreignId') == foreign_id:
+                    logging.info(f"Scene already exists in Whisparr: {movie.get('title')}")
+                    return True
+        return False
+
+    def add_series(self, title):
+        """Find scene in Whisparr database, check if exists, add if not, then search."""
+        
+        logging.info(f"Processing scene: {title}")
+        
+        # 1. Search Whisparr's database for the scene
+        search_result = self.search_scene(title)
+        
+        if not search_result:
+            logging.error(f"Scene '{title}' not found in Whisparr database")
+            return None
+            
+        # 2. Extract scene data
+        scene_data = search_result.get('movie', {})
+        scene_title = scene_data.get('title')
+        title_slug = scene_data.get('titleSlug')
+        foreign_id = scene_data.get('foreignId')
+        
+        if not all([scene_title, foreign_id]):
+            logging.error(f"Missing required data for scene '{title}'")
+            return None
+            
+        # 3. Check if scene already exists
+        if self.check_scene_exists(foreign_id):
+            logging.info(f"Scene '{title}' already exists in Whisparr")
+            return {"status": "already_exists", "title": scene_title}
+            
+        # 4. Add scene to Whisparr
+        movie_payload = {
+            "title": scene_title,
+            "titleSlug": title_slug,
+            "foreignId": foreign_id,
+            "qualityProfileId": 1,
             "rootFolderPath": self.root_folder,
+            "monitored": True,
             "addOptions": {
-                "searchForMissingEpisodes": True
+                "searchForMovie": True  # This triggers the search automatically
             }
         }
         
-        return self._call_api('series', method='POST', json=series_data)
+        result = self._call_api('movie', method='POST', json=movie_payload)
+        
+        if result and 'id' in result:
+            logging.info(f"Successfully added and searched for scene: {scene_title}")
+            return {"status": "added", "title": scene_title, "id": result['id']}
+        else:
+            logging.error(f"Failed to add scene '{title}' to Whisparr")
+            return None
+
+    def add_to_exclusion_list(self, title):
+        """Add a rejected scene to Whisparr's exclusion list."""
+        
+        logging.info(f"Adding rejected scene to exclusion list: {title}")
+        
+        # First search for the scene to get its foreign_id
+        search_result = self.search_scene(title)
+        
+        if not search_result:
+            logging.error(f"Cannot exclude scene '{title}' - not found in Whisparr database")
+            return False
+            
+        # Extract foreign_id from search results
+        scene_data = search_result.get('movie', {})
+        foreign_id = scene_data.get('foreignId')
+        
+        if not foreign_id:
+            logging.error(f"Cannot exclude scene '{title}' - no foreign ID found")
+            return False
+        
+        # Create exclusion payload
+        exclusion_payload = {
+            "foreignId": foreign_id,
+            "movieTitle": title
+        }
+        
+        result = self._call_api('exclusions', method='POST', json=exclusion_payload)
+        
+        if result:
+            logging.info(f"Successfully added '{title}' to exclusion list")
+            return True
+        else:
+            logging.error(f"Failed to add '{title}' to exclusion list")
+            return False

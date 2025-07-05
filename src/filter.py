@@ -1,229 +1,162 @@
 import logging
 import re
+from typing import Any, Dict, List, Tuple
 
-class SceneFilter:
+logger = logging.getLogger("stash_manager.filter")
+
+def _is_cup_size_match(scene_cup: str, rule_cup: str) -> bool:
     """
-    Filters scenes based on configurable criteria.
+    Check if a scene cup size matches a rule cup size.
+    E.g., rule "d" matches scene "dd", "ddd", etc.
     """
+    # Only apply this logic for single letters (cup sizes)
+    if len(rule_cup) == 1 and rule_cup.isalpha():
+        # Check if scene cup starts with the rule letter (case insensitive)
+        return scene_cup.lower().startswith(rule_cup.lower()) and scene_cup.isalpha()
+    return False
 
-    def __init__(self, config: dict):
-        self.filters = config.get("filters", {})
-        self.controls = config.get("filter_controls", {})
+def _parse_measurements(measurements_str: str) -> Dict[str, Any]:
+    """
+    Parse measurements string like "38DD-20-34" into components.
+    Returns dict with cup_size, waist, hip
+    """
+    if not measurements_str:
+        return {'cup_size': None, 'waist': None, 'hip': None}
+    
+    # Pattern to match measurements like "38DD-20-34" or "36D-24-36"
+    pattern_with_cup = r'(\d+)([A-Z]+)-(\d+)-(\d+)'
+    match = re.match(pattern_with_cup, measurements_str.strip())
+    
+    if match:
+        cup_size = match.group(2)
+        waist = int(match.group(3))
+        hip = int(match.group(4))
         
-        enabled_filters = [k for k, v in self.controls.items() if v]
-        logging.info("Filter initialized - Enabled filters: %s", enabled_filters)
-        
-        if self.controls.get('enable_performer_filters', False):
-            whitelist = self.filters.get('performer_whitelist', [])
-            blacklist = self.filters.get('performer_blacklist', [])
-            logging.info("Performer whitelist loaded: %d performers", len(whitelist))
-            logging.info("Performer blacklist loaded: %d performers", len(blacklist))
-            logging.debug("Whitelist: %s", whitelist)
-            logging.debug("Blacklist: %s", blacklist)
-        
-        logging.debug("Filter config: %s", self.filters)
+        return {
+            'cup_size': cup_size,
+            'waist': waist,
+            'hip': hip
+        }
 
-    def _normalize_list(self, filter_list: list) -> list:
-        return [item.lower().strip() for item in filter_list if item.strip()]
+    # Pattern to match measurements like "38-20-34"
+    pattern_without_cup = r'(\d+)-(\d+)-(\d+)'
+    match = re.match(pattern_without_cup, measurements_str.strip())
 
-    def _check_title_filters(self, title: str) -> tuple[bool, str]:
-        if not self.controls.get('enable_title_filters', False):
-            return True, "Title filters disabled"
-        if not title:
-            return True, "No title to check"
-        
-        title_lower = title.lower()
-        exclude_words = self._normalize_list(self.filters.get('title_exclude_words', []))
-        if exclude_words:
-            for word in exclude_words:
-                if word in title_lower:
-                    return False, f"Title contains excluded word: '{word}'"
-        
-        include_words = self._normalize_list(self.filters.get('title_include_words', []))
-        if include_words:
-            for word in include_words:
-                if word in title_lower:
-                    return True, f"Title contains required word: '{word}'"
-            return False, f"Title missing required words: {include_words}"
-        
-        return True, "Title passed filters"
+    if match:
+        # It matched, but there's no cup size. Return None for cup_size.
+        return {'cup_size': None, 'waist': int(match.group(2)), 'hip': int(match.group(3))}
 
-    def _check_studio_filters(self, studio: dict) -> tuple[bool, str]:
-        if not self.controls.get('enable_studio_filters', False):
-            return True, "Studio filters disabled"
-        if not studio:
-            return True, "No studio to check"
-        
-        studio_name = studio.get('name', '').lower()
-        exclude_studios = self._normalize_list(self.filters.get('exclude_studios', []))
-        if exclude_studios:
-            for excluded in exclude_studios:
-                if excluded in studio_name:
-                    return False, f"Studio is excluded: '{studio.get('name')}'"
-        
-        include_studios = self._normalize_list(self.filters.get('include_studios', []))
-        if include_studios:
-            for included in include_studios:
-                if included in studio_name:
-                    return True, f"Studio is included: '{studio.get('name')}'"
-            return False, f"Studio not in include list: '{studio.get('name')}'"
-        
-        return True, "Studio passed filters"
+    # Handle cases where measurements don't match expected format
+    logger.warning(f"Could not parse measurements: {measurements_str}")
+    return {'cup_size': None, 'waist': None, 'hip': None}
 
-    def _check_tag_filters(self, tags: list) -> tuple[bool, str]:
-        if not self.controls.get('enable_tag_filters', False):
-            return True, "Tag filters disabled"
-        if not tags:
-            return True, "No tags to check"
-        
-        tag_names = [tag.get('name', '').lower() for tag in tags]
-        exclude_tags = self._normalize_list(self.filters.get('exclude_tags', []))
-        if exclude_tags:
-            for tag_name in tag_names:
-                for excluded in exclude_tags:
-                    if excluded in tag_name:
-                        return False, f"Scene has excluded tag: '{tag_name}'"
-        
-        include_tags = self._normalize_list(self.filters.get('include_tags', []))
-        if include_tags:
-            for included in include_tags:
-                for tag_name in tag_names:
-                    if included in tag_name:
-                        return True, f"Scene has required tag: '{tag_name}'"
-            return False, f"Scene missing required tags: {include_tags}"
-        
-        return True, "Tags passed filters"
-
-    def _check_performer_whitelist_blacklist(self, performer_names: list) -> tuple[bool, str]:
-        whitelist = self._normalize_list(self.filters.get('performer_whitelist', []))
-        if whitelist:
-            for name in performer_names:
-                for whitelisted in whitelist:
-                    if whitelisted in name:
-                        return True, f"Scene has whitelisted performer: '{name}'"
-
-        blacklist = self._normalize_list(self.filters.get('performer_blacklist', []))
-        if blacklist:
-            for name in performer_names:
-                for blacklisted in blacklist:
-                    if blacklisted in name:
-                        return False, f"Scene has blacklisted performer: '{name}'"
-        
-        return None, "No whitelist/blacklist matches"
-
-    def _check_ethnicity_filters(self, ethnicities: list) -> tuple[bool, str]:
-        if not self.controls.get('enable_ethnicity_filters', False):
-            return True, "Ethnicity filters disabled"
+def _get_value_from_path(data: Dict, path: str) -> Any:
+    """
+    Retrieves a value from a nested dictionary using a dot-separated path.
+    If the path encounters a list, it recursively calls itself for each item.
+    Handles special parsed measurement fields.
+    """
+    # Handle special parsed measurement fields
+    if path in ['performers.cup_size', 'performers.waist', 'performers.hip']:
+        performers = data.get('performers', [])
+        if not isinstance(performers, list):
+            return None
             
-        exclude_ethnicities = [e.upper() for e in self.filters.get('exclude_ethnicities', [])]
-        if exclude_ethnicities:
-            for ethnicity in ethnicities:
-                if ethnicity in exclude_ethnicities:
-                    return False, f"Scene has excluded ethnicity: '{ethnicity}'"
-
-        include_ethnicities = [e.upper() for e in self.filters.get('include_ethnicities', [])]
-        if include_ethnicities:
-            found_included = False
-            for ethnicity in ethnicities:
-                if ethnicity in include_ethnicities:
-                    found_included = True
-                    break
-            if not found_included:
-                return False, f"Scene missing required ethnicities: {include_ethnicities}"
-
-        return True, "Ethnicity filters passed"
-
-    def _check_breast_size_filters(self, measurements_list: list) -> tuple[bool, str]:
-        if not self.controls.get('enable_breast_size_filters', False):
-            return True, "Breast size filters disabled"
+        results = []
+        measurement_field = path.split('.')[-1]  # cup_size, waist, or hip
         
-        include_sizes = self._normalize_list(self.filters.get('include_breast_sizes', []))
-        exclude_sizes = self._normalize_list(self.filters.get('exclude_breast_sizes', []))
-
-        # If no filters are set, or "any" is specified, pass the filter
-        if not include_sizes and not exclude_sizes:
-            return True, "No breast size filters specified."
-        if 'any' in include_sizes:
-            return True, "Breast size filter set to 'any'."
-
-        for measurements in measurements_list:
-            if not measurements or not isinstance(measurements, dict):
-                continue
-            
-            cup_size = str(measurements.get('cup_size', '')).lower().strip()
-            if not cup_size:
-                cup_size = 'null' # Treat empty as 'null' for matching purposes
-
-            # Check exclude sizes first
-            if any(size in cup_size for size in exclude_sizes):
-                return False, f"Performer has excluded breast size: '{cup_size}'"
-
-            # Check include sizes
-            if include_sizes:
-                if any(size in cup_size for size in include_sizes):
-                    return True, f"Performer has included breast size: '{cup_size}'"
+        for performer in performers:
+            measurements_str = performer.get('measurements', '')
+            parsed = _parse_measurements(measurements_str)
+            value = parsed.get(measurement_field)
+            if value is not None:
+                results.append(value)
         
-        # If we have an include list and no performer matched, fail the filter
-        if include_sizes:
-            return False, "No performer matched the required breast sizes."
+        return results if results else None
+    
+    # Original logic for all other paths
+    keys = path.split('.')
+    current_value = data
+    for i, key in enumerate(keys):
+        if current_value is None:
+            return None
+        if isinstance(current_value, list):
+            # If we have a list, collect the value from each item in the list
+            remaining_path = '.'.join(keys[i:])
+            results = []
+            for item in current_value:
+                value = _get_value_from_path(item, remaining_path)
+                if value is not None:
+                    if isinstance(value, list):
+                        results.extend(value)
+                    else:
+                        results.append(value)
+            return results
+        elif isinstance(current_value, dict):
+            current_value = current_value.get(key)
+        else:
+            return None
+    return current_value
 
-        return True, "Breast size filters passed"
+def _check_condition(scene_value: Any, operator: str, rule_value: Any) -> Tuple[bool, Any]:
+    """
+    Checks if a scene value meets a rule's condition based on the operator.
+    Returns a tuple of (bool, matched_value).
+    """
+    if scene_value is None:
+        if operator == 'include' and rule_value is None:
+            return True, None
+        if operator == 'exclude' and rule_value is None:
+            return False, None
+        return False, None
 
-    def _check_performer_filters(self, performers: list) -> tuple[bool, str]:
-        if not self.controls.get('enable_performer_filters', False):
-            return True, "Performer filters disabled"
-        if not performers:
-            return False, "Scene has no performers to check"
+    # Ensure scene_value is a list for consistent processing
+    if not isinstance(scene_value, list):
+        scene_value = [scene_value]
 
-        performer_names = []
-        ethnicities = []
-        measurements_list = []
+    # Normalize all values to lowercase strings for case-insensitive matching
+    scene_value_lower = [str(v).lower() for v in scene_value]
+    if rule_value is not None:
+        if isinstance(rule_value, list):
+            rule_value_lower = [str(v).lower() for v in rule_value]
+        else:
+            rule_value_lower = str(rule_value).lower()
+    else:
+        rule_value_lower = None
+
+    if operator == 'include':
+        rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
+        for s_val in scene_value_lower:
+            for r_val in rule_values:
+                # Special handling for cup sizes - "d" should match "dd", "ddd", etc.
+                if _is_cup_size_match(s_val, r_val) or r_val in s_val:
+                    # Find the original cased value
+                    original_index = scene_value_lower.index(s_val)
+                    original_value = scene_value[original_index]
+                    return True, original_value
+        return False, None
+    
+    if operator == 'exclude':
+        rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
+        # "Does not contain" check
+        if not any(r_val in scene_value_lower for r_val in rule_values):
+            return True, f"no {', '.join(rule_values)} found"
         
-        for p_data in performers:
-            performer = p_data.get('performer', {})
-            name = performer.get('name', '')
-            ethnicity = performer.get('ethnicity', '')
-            measurements = performer.get('measurements', {})
-            gender = performer.get('gender', '')
-            
-            if name:
-                performer_names.append(name.lower())
-            if ethnicity:
-                ethnicities.append(ethnicity.upper())
-            if gender and gender.lower() == 'female':
-                measurements_list.append(measurements)
+        return False, None
+    
+    if operator in ['is_larger_than', 'is_smaller_than']:
+        try:
+            rule_value_num = float(rule_value_lower)
+            scene_value_num = float(scene_value[0])
+            if operator == 'is_larger_than':
+                if scene_value_num > rule_value_num:
+                    return True, scene_value[0]
+            if operator == 'is_smaller_than':
+                if scene_value_num < rule_value_num:
+                    return True, scene_value[0]
+        except (ValueError, IndexError):
+            return False, None
+        return False, None
 
-        result, reason = self._check_performer_whitelist_blacklist(performer_names)
-        if result is not None:
-            return result, reason
-
-        passed, reason = self._check_ethnicity_filters(ethnicities)
-        if not passed:
-            return False, reason
-
-        passed, reason = self._check_breast_size_filters(measurements_list)
-        if not passed:
-            return False, reason
-
-        return True, "All performer filters passed"
-
-    def should_add_scene(self, scene: dict) -> tuple[bool, str]:
-        logging.debug("Filtering scene: %s", scene.get('title'))
-        
-        passed, reason = self._check_title_filters(scene.get('title'))
-        if not passed:
-            return False, reason
-        
-        passed, reason = self._check_studio_filters(scene.get('studio'))
-        if not passed:
-            return False, reason
-        
-        passed, reason = self._check_tag_filters(scene.get('tags', []))
-        if not passed:
-            return False, reason
-        
-        passed, reason = self._check_performer_filters(scene.get('performers', []))
-        if not passed:
-            return False, reason
-        
-        return True, "Scene passed all enabled filters"
+    logger.warning(f"Unknown operator '{operator}' used in filter rule.")
+    return False, None
