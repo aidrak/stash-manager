@@ -110,69 +110,65 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
             return False, None
         return False, None
 
-    # Ensure scene_value is a list for consistent processing
     if not isinstance(scene_value, list):
         scene_value = [scene_value]
 
-    # Normalize all values to lowercase strings for case-insensitive matching
-    scene_value_lower = [str(v).lower() for v in scene_value]
     if rule_value is not None:
         if isinstance(rule_value, list):
-            rule_value_lower = [str(v).lower() for v in rule_value]
+            rule_values_lower = [str(v).lower().strip() for v in rule_value]
         else:
-            rule_value_lower = str(rule_value).lower()
+            rule_values_lower = [v.strip() for v in str(rule_value).lower().split(',')]
     else:
-        rule_value_lower = None
+        rule_values_lower = []
 
     if operator == 'include':
-        rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
-        for s_val in scene_value_lower:
-            for r_val in rule_values:
+        for s_val_orig in scene_value:
+            s_val_to_check = s_val_orig
+            if field and 'tags' in field and isinstance(s_val_orig, dict) and 'name' in s_val_orig:
+                s_val_to_check = s_val_orig['name']
+            
+            s_val_lower = str(s_val_to_check).lower()
+
+            for r_val in rule_values_lower:
                 is_match = False
-                if field == 'tags.name':
-                    is_match = (r_val == s_val)
+                if field and 'tags' in field:
+                    is_match = (r_val == s_val_lower)
                 else:
-                    is_match = _is_cup_size_match(s_val, r_val) or (r_val in s_val)
+                    is_match = _is_cup_size_match(s_val_lower, r_val) or (r_val in s_val_lower)
 
                 if is_match:
-                    original_index = scene_value_lower.index(s_val)
-                    original_value = scene_value[original_index]
-                    return True, original_value
+                    return True, s_val_orig
         return False, None
 
     if operator == 'exclude':
-        rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
-        
-        found_match = False
-        for s_val in scene_value_lower:
-            for r_val in rule_values:
+        for s_val_orig in scene_value:
+            s_val_to_check = s_val_orig
+            if field and 'tags' in field and isinstance(s_val_orig, dict) and 'name' in s_val_orig:
+                s_val_to_check = s_val_orig['name']
+
+            s_val_lower = str(s_val_to_check).lower()
+
+            for r_val in rule_values_lower:
                 is_match = False
-                if field == 'tags.name':
-                    is_match = (r_val == s_val)
+                if field and 'tags' in field:
+                    is_match = (r_val == s_val_lower)
                 else:
-                    is_match = (r_val in s_val)
-                
+                    is_match = (r_val in s_val_lower)
+
                 if is_match:
-                    found_match = True
-                    break
-            if found_match:
-                break
-        
-        if not found_match:
-            return True, f"no {', '.join(rule_values)} found"
-        else:
-            return False, None
-    
+                    return True, s_val_orig
+        return False, None
+
     if operator in ['is_larger_than', 'is_smaller_than']:
         try:
-            rule_value_num = float(rule_value_lower)
+            # This logic assumes the first value is the one to check, which is reasonable for these operators.
             scene_value_num = float(scene_value[0])
-            if operator == 'is_larger_than':
-                if scene_value_num > rule_value_num:
-                    return True, scene_value[0]
-            if operator == 'is_smaller_than':
-                if scene_value_num < rule_value_num:
-                    return True, scene_value[0]
+            rule_value_num = float(rule_values_lower[0])
+            
+            if operator == 'is_larger_than' and scene_value_num > rule_value_num:
+                return True, scene_value[0]
+            if operator == 'is_smaller_than' and scene_value_num < rule_value_num:
+                return True, scene_value[0]
         except (ValueError, IndexError):
             return False, None
         return False, None
