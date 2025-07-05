@@ -1,6 +1,6 @@
 import logging
 import os
-from .database_manager import DatabaseManager
+from src.database_manager import DatabaseManager
 
 # Global database instance
 _db = None

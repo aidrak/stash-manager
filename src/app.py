@@ -1,4 +1,5 @@
 import os
+import sys
 import yaml
 import logging
 import threading
@@ -7,14 +8,18 @@ import time
 import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
-from .scheduler import scheduler
-from .processor import add_new_scenes_to_whisparr, clean_existing_scenes_from_stash
-from .stash_api import StashAPI
-from .stashdb_conditions import STASHDB_CONDITIONS  # Changed: separate files
-from .local_stash_conditions import LOCAL_STASH_CONDITIONS  # Changed: separate files
-from .config import get_config
-from .database_manager import DatabaseManager
-from .config import get_database, get_filter_rules, save_filter_rules, get_setting, set_setting
+
+# Add the src directory to Python path for absolute imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from src.scheduler import scheduler
+from src.processor import add_new_scenes_to_whisparr, clean_existing_scenes_from_stash
+from src.stash_api import StashAPI
+from src.stashdb_conditions import STASHDB_CONDITIONS  # Changed: separate files
+from src.local_stash_conditions import LOCAL_STASH_CONDITIONS  # Changed: separate files
+from src.config import get_config
+from src.database_manager import DatabaseManager
+from src.config import get_database, get_filter_rules, save_filter_rules, get_setting, set_setting
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -161,7 +166,7 @@ def clean_existing_scenes_job():
             
             print("DEBUG: Calling clean_existing_scenes_from_stash...")
             logging.info("Calling clean_existing_scenes_from_stash...")
-            from .processor import clean_existing_scenes_from_stash
+            from src.processor import clean_existing_scenes_from_stash
             clean_existing_scenes_from_stash(config, stash_api)
             
             print("DEBUG: clean_existing_scenes_from_stash function completed.")
@@ -540,13 +545,13 @@ def settings():
         return redirect(url_for('settings'))
 
     # Load current settings for GET request
-    from .config import get_config
+    from src.config import get_config
     settings = get_config(strict=False)
     return render_template('settings.html', settings=settings)
 if __name__ == '__main__':
     # Load config to setup logging before running app
     try:
-        from .config import get_config
+        from src.config import get_config
         config = get_config(strict=False)
         if config:
             setup_logging(config)
