@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, List, Tuple
-from src.filter import _get_value_from_path, _check_condition
+from .filter import _get_value_from_path, _check_condition
 
 logger = logging.getLogger("stash_manager.clean_scenes_filter")
 
@@ -13,7 +13,7 @@ class CleanScenesFilter:
 
     def __init__(self, config: dict, conditions: dict):
         # Get rules directly from database instead of from config
-        from src.config import get_filter_rules
+        from .config import get_filter_rules
         rules = get_filter_rules('clean_scenes')
         self.filter_config = {'rules': rules}
         self.conditions = conditions

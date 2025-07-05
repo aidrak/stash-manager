@@ -7,7 +7,7 @@ import time
 import requests
 from typing import Dict, List
 
-from src.config import (
+from .config import (
     get_job_timeout, get_poll_interval, get_scene_limit, get_performer_limit
 )
 

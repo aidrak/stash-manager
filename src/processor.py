@@ -1,12 +1,12 @@
 import logging
 import os
-from src.add_scenes_filter import AddScenesFilter
-from src.clean_scenes_filter import CleanScenesFilter
-from src.stash_api import StashAPI
-from src.whisparr import WhisparrApi
-from src.config import get_identify_sources
-from src.stashdb_conditions import STASHDB_CONDITIONS
-from src.local_stash_conditions import LOCAL_STASH_CONDITIONS
+from .add_scenes_filter import AddScenesFilter
+from .clean_scenes_filter import CleanScenesFilter
+from .stash_api import StashAPI
+from .whisparr import WhisparrApi
+from .config import get_identify_sources
+from .stashdb_conditions import STASHDB_CONDITIONS
+from .local_stash_conditions import LOCAL_STASH_CONDITIONS
 
 logger = logging.getLogger(__name__)
 
