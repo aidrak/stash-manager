@@ -6,6 +6,7 @@ CONFIG_DIR="/config"
 if [ ! -d "$CONFIG_DIR" ]; then
     echo "Config directory not found. Creating $CONFIG_DIR..."
     mkdir -p "$CONFIG_DIR"
+    chown nobody:users "$CONFIG_DIR"
 fi
 
 # Start the web application, replacing the shell process with the Python process
