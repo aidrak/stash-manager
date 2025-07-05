@@ -98,7 +98,7 @@ def _get_value_from_path(data: Dict, path: str) -> Any:
             return None
     return current_value
 
-def _check_condition(scene_value: Any, operator: str, rule_value: Any) -> Tuple[bool, Any]:
+def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: str = None) -> Tuple[bool, Any]:
     """
     Checks if a scene value meets a rule's condition based on the operator.
     Returns a tuple of (bool, matched_value).
@@ -129,8 +129,14 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any) -> Tuple[
         for s_val in scene_value_lower:
             for r_val in rule_values:
                 # Special handling for cup sizes - "d" should match "dd", "ddd", etc.
-                if _is_cup_size_match(s_val, r_val) or r_val in s_val:
-                    # Find the original cased value
+                if field == 'tags.name':
+                    # Exact match for tags
+                    if r_val == s_val:
+                        original_index = scene_value_lower.index(s_val)
+                        original_value = scene_value[original_index]
+                        return True, original_value
+                elif _is_cup_size_match(s_val, r_val) or r_val in s_val:
+                    # Substring match for other fields
                     original_index = scene_value_lower.index(s_val)
                     original_value = scene_value[original_index]
                     return True, original_value

@@ -45,7 +45,7 @@ class CleanScenesFilter:
                 continue
 
             scene_value = _get_value_from_path(scene, field)
-            condition_matches, matched_value = _check_condition(scene_value, operator, value)
+            condition_matches, matched_value = _check_condition(scene_value, operator, value, field)
             
             if condition_matches:
                 field_label = self.conditions.get(field, {}).get('label', field)
