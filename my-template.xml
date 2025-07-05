@@ -34,10 +34,12 @@ Requires active Stash and Whisparr instances with API access.</Overview>
 Whisparr: Active Whisparr instance with API access</Requires>
   <Config Name="Config Path" Target="/home/appuser/config" Default="/mnt/user/appdata/stash-manager/config" Mode="rw" Description="Path to your configuration directory" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/stash-manager/config</Config>
   <Config Name="Media Path" Target="/media" Default="/mnt/user/media" Mode="ro" Description="Path to your media files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media</Config>
+  <Config Name="Port" Target="5001" Default="5001" Mode="tcp" Description="Container Port" Type="Port" Display="always" Required="true" Mask="false">5001</Config>
   <Config Name="Stash URL" Target="STASH_URL" Default="http://stash:9999" Mode="" Description="URL to your Stash instance" Type="Variable" Display="always" Required="true" Mask="false">http://stash:9999</Config>
-  <Config Name="Stash API Key" Target="STASH_API_KEY" Default="" Mode="" Description="API key for Stash" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Local Stash API Key" Target="STASH_API_KEY" Default="" Mode="" Description="API key for Stash" Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="Whisparr URL" Target="WHISPARR_URL" Default="http://whisparr:6969" Mode="" Description="URL to your Whisparr instance" Type="Variable" Display="always" Required="true" Mask="false">http://whisparr:6969</Config>
   <Config Name="Whisparr API Key" Target="WHISPARR_API_KEY" Default="" Mode="" Description="API key for Whisparr" Type="Variable" Display="always" Required="true" Mask="true"></Config>
-  <Config Name="StashDB API Key" Target="STASHDB_API_KEY" Default="" Mode="" Description="Optional StashDB API key" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Whisparr Root Folder" Target="WHISPARR_ROOT_FOLDER" Default="/data" Mode="" Description="Whisparr Root Folder" Type="Variable" Display="always" Required="true" Mask="false">/data</Config>
+  <Config Name="StashDB API Key" Target="STASHDB_API_KEY" Default="" Mode="" Description="StashDB API key" Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="TZ" Target="TZ" Default="America/New_York" Mode="" Description="Timezone for scheduling and logging" Type="Variable" Display="advanced" Required="false" Mask="false">America/New_York</Config>
 </Container>
