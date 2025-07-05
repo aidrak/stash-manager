@@ -23,7 +23,7 @@ WORKDIR /home/nobody
 
 # Install runtime dependencies
 RUN apt-get update && \
-    apt-get install -y cron curl iputils-ping --no-install-recommends && \
+    apt-get install -y cron curl iputils-ping gosu --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from the build stage
@@ -36,9 +36,6 @@ COPY entrypoint.sh .
 
 # Give the nobody user ownership of the application files
 RUN chown -R nobody:users /home/nobody
-
-# Switch to the nobody user
-USER nobody
 
 # Set execute permissions for the entrypoint script
 RUN chmod +x /home/nobody/entrypoint.sh
