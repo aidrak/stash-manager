@@ -14,9 +14,12 @@ RUN pip wheel --no-cache-dir --wheel-dir /usr/src/app/wheels -r requirements.txt
 # --- Final Stage ---
 FROM python:3.9-slim
 
-# Create a non-root user
-RUN useradd --create-home appuser
-WORKDIR /home/appuser
+# Use Unraid standard: nobody (UID 99) and users (GID 100)
+# The nobody user and users group should already exist, but let's ensure they do
+RUN groupadd -f -g 100 users && \
+    useradd -r -u 99 -g 100 -d /home/nobody -s /bin/bash nobody || true && \
+    mkdir -p /home/nobody
+WORKDIR /home/nobody
 
 # Install runtime dependencies
 RUN apt-get update && \
@@ -31,17 +34,17 @@ RUN pip install --no-cache /wheels/*
 COPY src/ ./src/
 COPY entrypoint.sh .
 
-# Give the new user ownership of the application files
-RUN chown -R appuser:appuser /home/appuser
+# Give the nobody user ownership of the application files
+RUN chown -R nobody:users /home/nobody
 
-# Switch to the non-root user
-USER appuser
+# Switch to the nobody user
+USER nobody
 
 # Set execute permissions for the entrypoint script
-RUN chmod +x /home/appuser/entrypoint.sh
+RUN chmod +x /home/nobody/entrypoint.sh
 
 # Expose the application port
 EXPOSE 5001
 
 # Set the entrypoint
-ENTRYPOINT ["/home/appuser/entrypoint.sh"]
+ENTRYPOINT ["/home/nobody/entrypoint.sh"]

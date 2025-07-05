@@ -10,4 +10,6 @@ fi
 
 # Start the web application, replacing the shell process with the Python process
 echo "Starting web application..."
-exec python -m src.app
+cd /home/nobody
+export PYTHONPATH=/home/nobody:$PYTHONPATH
+exec python src/app.py
