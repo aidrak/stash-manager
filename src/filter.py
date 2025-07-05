@@ -145,7 +145,12 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
     if operator == 'exclude':
         rule_values = [v.strip() for v in str(rule_value_lower).split(',')]
         # "Does not contain" check
-        if not any(r_val in scene_value_lower for r_val in rule_values):
+        if field == 'tags.name':
+            # Exact match for tags
+            if not any(r_val == s_val for s_val in scene_value_lower for r_val in rule_values):
+                return True, f"no {', '.join(rule_values)} found"
+        elif not any(r_val in s_val for s_val in scene_value_lower for r_val in rule_values):
+            # Substring match for other fields
             return True, f"no {', '.join(rule_values)} found"
         
         return False, None
