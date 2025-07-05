@@ -11,7 +11,7 @@ services:
       - TZ=America/Chicago
     env_file: .env
     volumes:
-      - /mnt/user/appdata/stash-manager/config:/home/appuser/config
+      - /mnt/user/appdata/stash-manager/config:/config
       - ${MEDIA_PATH:-./media}:/media
     networks:
       - media_net

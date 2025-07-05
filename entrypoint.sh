@@ -1,13 +1,14 @@
 #!/bin/sh
 
-CONFIG_DIR="/home/appuser/config"
+CONFIG_DIR="/config"
 
 # Create config directory if it doesn't exist
 if [ ! -d "$CONFIG_DIR" ]; then
     echo "Config directory not found. Creating $CONFIG_DIR..."
     mkdir -p "$CONFIG_DIR"
+    chown appuser:appuser "$CONFIG_DIR"
 fi
 
 # Start the web application, replacing the shell process with the Python process
 echo "Starting web application..."
-exec python -m src.app
+exec python src/app.py
