@@ -97,38 +97,3 @@ class WhisparrApi:
         else:
             logging.error(f"Failed to add scene '{title}' to Whisparr")
             return None
-
-    def add_to_exclusion_list(self, title):
-        """Add a rejected scene to Whisparr's exclusion list."""
-        
-        logging.info(f"Adding rejected scene to exclusion list: {title}")
-        
-        # First search for the scene to get its foreign_id
-        search_result = self.search_scene(title)
-        
-        if not search_result:
-            logging.error(f"Cannot exclude scene '{title}' - not found in Whisparr database")
-            return False
-            
-        # Extract foreign_id from search results
-        scene_data = search_result.get('movie', {})
-        foreign_id = scene_data.get('foreignId')
-        
-        if not foreign_id:
-            logging.error(f"Cannot exclude scene '{title}' - no foreign ID found")
-            return False
-        
-        # Create exclusion payload
-        exclusion_payload = {
-            "foreignId": foreign_id,
-            "movieTitle": title
-        }
-        
-        result = self._call_api('exclusions', method='POST', json=exclusion_payload)
-        
-        if result:
-            logging.info(f"Successfully added '{title}' to exclusion list")
-            return True
-        else:
-            logging.error(f"Failed to add '{title}' to exclusion list")
-            return False

@@ -61,20 +61,17 @@ def add_new_scenes_to_whisparr(config: dict, stash_api: StashAPI, start_date=Non
         should_add, reason = filter_engine.should_add_scene(scene)
         
         if should_add:
-            logger.info(f"✅ PASSED: {scene_title} - {reason}")
+            logger.debug(f"✅ PASSED: {scene_title} - {reason}")
             if not dry_run:
                 result = whisparr_api.add_series(scene.get('title'))
-                if result:
-                    logger.info(f"   Successfully added to Whisparr")
+                if result and result.get('status') == 'added':
+                    logger.info(f"✅ Added to Whisparr: {scene_title}")
+                elif result:
+                    logger.debug(f"ℹ️  Already exists in Whisparr: {scene_title}")
                 else:
-                    logger.error(f"   Failed to add to Whisparr")
+                    logger.error(f"❌ Failed to add to Whisparr: {scene_title}")
         else:
             logger.debug(f"❌ FILTERED: {scene_title} - {reason}")
-            # For rejected scenes, add to Whisparr exclusion list
-            if not dry_run:
-                exclusion_result = whisparr_api.add_to_exclusion_list(scene.get('title'))
-                if exclusion_result:
-                    logger.debug(f"   Added to exclusion list")
     
     logger.info("=== COMPLETED ADD NEW SCENES JOB ===")
 
