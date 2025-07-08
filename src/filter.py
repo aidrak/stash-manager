@@ -102,12 +102,18 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
     """
     Checks if a scene value meets a rule's condition based on the operator.
     Returns a tuple of (bool, matched_value).
+    
+    FIXED LOGIC:
+    - 'include': Returns True if the scene CONTAINS the rule value
+    - 'exclude': Returns True if the scene DOES NOT CONTAIN the rule value
     """
     if scene_value is None:
-        if operator == 'include' and rule_value is None:
-            return True, None
-        if operator == 'exclude' and rule_value is None:
+        if operator == 'include':
+            # Scene has no value, so it doesn't include anything
             return False, None
+        if operator == 'exclude':
+            # Scene has no value, so it excludes everything (rule matches)
+            return True, None
         return False, None
 
     if not isinstance(scene_value, list):
@@ -122,6 +128,7 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
         rule_values_lower = []
 
     if operator == 'include':
+        # INCLUDE: Return True if scene contains ANY of the rule values
         for s_val_orig in scene_value:
             s_val_to_check = s_val_orig
             if field and 'tags' in field and isinstance(s_val_orig, dict) and 'name' in s_val_orig:
@@ -141,6 +148,8 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
         return False, None
 
     if operator == 'exclude':
+        # EXCLUDE: Return True if scene DOES NOT CONTAIN any of the rule values
+        # This is the FIXED logic - opposite of include
         for s_val_orig in scene_value:
             s_val_to_check = s_val_orig
             if field and 'tags' in field and isinstance(s_val_orig, dict) and 'name' in s_val_orig:
@@ -156,8 +165,12 @@ def _check_condition(scene_value: Any, operator: str, rule_value: Any, field: st
                     is_match = (r_val in s_val_lower)
 
                 if is_match:
-                    return True, s_val_orig
-        return False, None
+                    # Found the excluded value in the scene, so rule DOESN'T match
+                    return False, None
+        
+        # Went through all scene values and didn't find any excluded values
+        # So the scene successfully excludes the rule value - rule matches
+        return True, "does not contain " + str(rule_value)
 
     if operator in ['is_larger_than', 'is_smaller_than']:
         try:
