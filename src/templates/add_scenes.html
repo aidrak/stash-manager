@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Stash Manager - Clean Scenes{% endblock %}
+{% block title %}Stash Manager - Add Scenes{% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
@@ -8,16 +8,13 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center">
-    <h1 class="mt-5">Clean Scenes</h1>
+    <h1 class="mt-5">Add Scenes</h1>
 </div>
 <p class="lead">{{ current_context.description }}</p>
-<div class="alert alert-warning" role="alert">
-    <strong>⚠️ Warning:</strong> Scenes that get <strong>REJECTED</strong> by these rules will be <strong>DELETED</strong> from your Stash library!
-</div>
 <div class="alert alert-info" role="alert">
-    <strong>🔥 Firewall Logic:</strong> Rules process in order until the first match. Use <strong>Accept</strong> to keep scenes, <strong>Reject</strong> to delete them. Unmatched scenes are automatically rejected.
+    <strong>🔥 Firewall Logic:</strong> Rules process in order until the first match. Use <strong>Accept</strong> to add scenes to Whisparr, <strong>Reject</strong> to skip them. Unmatched scenes are automatically rejected.
 </div>
-<p>These rules determine what scenes to keep or remove from your existing Stash library. Rules are processed top to bottom - <strong>first match wins</strong>.</p>
+<p>These rules determine what scenes to add to Whisparr from StashDB. Rules are processed top to bottom - <strong>first match wins</strong>.</p>
 <button type="button" class="btn btn-success mb-3" data-toggle="modal" data-target="#rule-modal" data-action="add">Add New Rule</button>
 
 <table class="table mt-3">
@@ -38,17 +35,19 @@
             </td>
             <td style="cursor: default;">
                 <strong>
-                    {% if rule.field == 'performers.cup_size' %}
+                    {% if rule.field == 'performers.performer.measurements.cup_size' %}
                         Cup Size
-                    {% elif rule.field == 'performers.waist' %}
+                    {% elif rule.field == 'performers.performer.measurements.band_size' %}
+                        Band Size
+                    {% elif rule.field == 'performers.performer.measurements.waist' %}
                         Waist Size
-                    {% elif rule.field == 'performers.hip' %}
+                    {% elif rule.field == 'performers.performer.measurements.hip' %}
                         Hip Size
-                    {% elif rule.field == 'performers.name' %}
+                    {% elif rule.field == 'performers.performer.name' %}
                         Performer Name
-                    {% elif rule.field == 'performers.ethnicity' %}
+                    {% elif rule.field == 'performers.performer.ethnicity' %}
                         Performer Ethnicity
-                    {% elif rule.field == 'performers.gender' %}
+                    {% elif rule.field == 'performers.performer.gender' %}
                         Performer Gender
                     {% elif rule.field == 'tags' %}
                         Tags
@@ -83,7 +82,7 @@
             </td>
             <td style="cursor: default;">
                 <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#rule-modal" data-action="edit" data-rule-index="{{ loop.index0 }}" data-rule='{{ rule | tojson | escape }}'>Edit</button>
-                <a href="{{ url_for('delete_clean_rule', rule_index=loop.index0) }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this rule?')">Delete</a>
+                <a href="{{ url_for('delete_add_rule', rule_index=loop.index0) }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this rule?')">Delete</a>
             </td>
         </tr>
         {% endfor %}
@@ -127,8 +126,8 @@
                     <div class="form-group">
                         <label>Action</label>
                         <select name="action" class="form-control" required>
-                            <option value="accept">Accept - Keep scene in Stash</option>
-                            <option value="reject">Reject - Delete scene from Stash</option>
+                            <option value="accept">Accept - Add scene to Whisparr</option>
+                            <option value="reject">Reject - Do not add scene</option>
                         </select>
                     </div>
 
@@ -192,18 +191,18 @@
         const form = document.getElementById('rule-form');
 
         if (action === 'add') {
-            modal.find('.modal-title').text('Add Clean Rule');
-            form.action = "{{ url_for('add_clean_rule') }}";
+            modal.find('.modal-title').text('Add Rule');
+            form.action = "{{ url_for('add_add_rule') }}";
             form.reset();
             // Clear the operator dropdown when adding new rule
             updateOperatorDropdown(form.querySelector('[name="condition-type"]'));
         } else if (action === 'edit') {
-            modal.find('.modal-title').text('Edit Clean Rule');
+            modal.find('.modal-title').text('Edit Rule');
             const ruleIndex = button.data('rule-index');
             const rule = button.data('rule');
-            form.action = `/clean-scenes/edit/${ruleIndex}`;
+            form.action = `/add-scenes/edit/${ruleIndex}`;
             
-            console.log('Editing clean rule:', rule); // Debug log
+            console.log('Editing add rule:', rule); // Debug log
             
             // Populate form with rule data using the correct field names
             form.querySelector('[name="condition-type"]').value = rule.field || '';
@@ -223,7 +222,7 @@
         handle: '.drag-handle',
         onEnd: function (evt) {
             const newOrder = Array.from(tbody.children).map(row => parseInt(row.dataset.id));
-            fetch('/clean-scenes/reorder', {
+            fetch('/add-scenes/reorder', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

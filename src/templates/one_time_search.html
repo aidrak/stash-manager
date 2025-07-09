@@ -2,62 +2,7 @@
 
 {% block title %}One-Time Search - Stash Manager{% endblock %}
 
-{% block extra_css %}
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-{% endblock %}
-
-{% block custom_styles %}
-.progress-container {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 20px;
-    margin: 20px 0;
-}
-.job-status {
-    border-left: 4px solid #007bff;
-    padding-left: 15px;
-}
-.job-status.running {
-    border-color: #ffc107;
-}
-.job-status.completed {
-    border-color: #28a745;
-}
-.job-status.failed {
-    border-color: #dc3545;
-}
-.preset-buttons .btn {
-    margin-right: 5px;
-    margin-bottom: 5px;
-}
-.search-history {
-    max-height: 400px;
-    overflow-y: auto;
-}
-.status-badge {
-    font-size: 0.8em;
-}
-.log-container {
-    background: #212529;
-    color: #ffffff;
-    border-radius: 4px;
-    padding: 15px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9em;
-    max-height: 300px;
-    overflow-y: auto;
-}
-.date-input-group {
-    margin-bottom: 15px;
-}
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-{% endblock %}
-
 {% block content %}
-<!-- Header -->
 <div class="row mb-4">
     <div class="col">
         <h1 class="mt-4"><i class="fas fa-calendar-search"></i> One-Time Search</h1>
@@ -71,14 +16,12 @@
 </div>
 
 <div class="row">
-    <!-- Search Form -->
     <div class="col-lg-6">
         <div class="card">
             <div class="card-header">
                 <h5><i class="fas fa-search"></i> New Search</h5>
             </div>
             <div class="card-body">
-                <!-- Date Presets -->
                 <div class="preset-buttons mb-3">
                     <label class="form-label">Quick Presets:</label><br>
                     {% for key, preset in presets.items() %}
@@ -89,7 +32,6 @@
                     {% endfor %}
                 </div>
 
-                <!-- Search Form -->
                 <form id="searchForm">
                     <div class="date-input-group">
                         <label for="start_date" class="form-label">Start Date</label>
@@ -121,7 +63,6 @@
         </div>
     </div>
 
-    <!-- Progress & Status -->
     <div class="col-lg-6">
         <div class="card">
             <div class="card-header">
@@ -149,7 +90,6 @@
             </div>
         </div>
 
-        <!-- Real-time Log -->
         <div class="card mt-3">
             <div class="card-header">
                 <h6><i class="fas fa-terminal"></i> Live Log</h6>
@@ -163,7 +103,6 @@
     </div>
 </div>
 
-<!-- Search History -->
 <div class="row mt-4">
     <div class="col-12">
         <div class="card">
@@ -557,3 +496,4 @@
         }
     }, 30000);
 </script>
+{% endblock %}
