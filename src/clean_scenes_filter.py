@@ -49,7 +49,12 @@ class CleanScenesFilter:
             
             if condition_matches:
                 field_label = self.conditions.get(field, {}).get('label', field)
-                reason = f"{field_label} {operator} {matched_value}"
+                
+                display_value = matched_value
+                if isinstance(matched_value, dict) and 'name' in matched_value:
+                    display_value = matched_value['name']
+
+                reason = f"{field_label} {operator} {display_value}"
                 
                 if action.lower() == 'reject':
                     logger.debug(f"Scene '{scene_title}' REJECTED by rule '{rule_name}': {reason}")

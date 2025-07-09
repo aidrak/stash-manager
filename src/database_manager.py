@@ -101,10 +101,27 @@ class DatabaseManager:
             FOREIGN KEY (job_run_id) REFERENCES job_runs(id),
             UNIQUE(scene_id, source)
         );
+        
+        CREATE TABLE IF NOT EXISTS one_time_searches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed', 'cancelled')),
+            results TEXT, -- JSON string with search results
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME,
+            duration_seconds REAL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_one_time_searches_date ON one_time_searches(created_at);
+        CREATE INDEX IF NOT EXISTS idx_one_time_searches_status ON one_time_searches(status);
         """
         conn.executescript(schema)
     
-    # Settings Management
+    # ============================================================================
+    # SETTINGS MANAGEMENT
+    # ============================================================================
+    
     def get_setting(self, section: str, key: str, default: Any = None) -> Any:
         """Get a single setting value."""
         with self.get_connection() as conn:
@@ -146,7 +163,10 @@ class DatabaseManager:
                     settings[section][row['key']] = row['value']
             return settings
     
-    # Filter Rules Management
+    # ============================================================================
+    # FILTER RULES MANAGEMENT
+    # ============================================================================
+    
     def get_filter_rules(self, context: str) -> List[Dict[str, Any]]:
         """Get filter rules for a specific context, ordered by priority."""
         with self.get_connection() as conn:
@@ -227,7 +247,10 @@ class DatabaseManager:
                 )
             conn.commit()
     
-    # Job Management
+    # ============================================================================
+    # JOB MANAGEMENT
+    # ============================================================================
+    
     def start_job_run(self, job_name: str, dry_run: bool = False) -> int:
         """Start a new job run and return its ID."""
         with self.get_connection() as conn:
@@ -266,7 +289,10 @@ class DatabaseManager:
             row = cursor.fetchone()
             return dict(row) if row else None
     
-    # Scene Processing Tracking
+    # ============================================================================
+    # SCENE PROCESSING TRACKING
+    # ============================================================================
+    
     def record_scene_processing(self, scene_id: str, scene_title: str, source: str,
                                action_taken: str, rule_matched: str = None, 
                                job_run_id: int = None):
@@ -288,3 +314,88 @@ class DatabaseManager:
                 (scene_id, source)
             )
             return cursor.fetchone() is not None
+    
+    # ============================================================================
+    # ONE-TIME SEARCH MANAGEMENT
+    # ============================================================================
+    
+    def record_one_time_search(self, start_date: str, end_date: str, status: str = 'running') -> int:
+        """Record a new one-time search"""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """INSERT INTO one_time_searches 
+                   (start_date, end_date, status, created_at)
+                   VALUES (?, ?, ?, CURRENT_TIMESTAMP)""",
+                (start_date, end_date, status)
+            )
+            conn.commit()
+            return cursor.lastrowid
+
+    def finish_one_time_search(self, search_id: int, status: str, results: dict = None):
+        """Update a one-time search with completion status and results"""
+        results_json = json.dumps(results) if results else None
+        
+        with self.get_connection() as conn:
+            conn.execute(
+                """UPDATE one_time_searches 
+                   SET status = ?, results = ?, completed_at = CURRENT_TIMESTAMP,
+                       duration_seconds = (julianday(CURRENT_TIMESTAMP) - julianday(created_at)) * 86400
+                   WHERE id = ?""",
+                (status, results_json, search_id)
+            )
+            conn.commit()
+
+    def get_recent_one_time_searches(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent one-time searches with results"""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """SELECT id, start_date, end_date, status, results, 
+                          created_at, completed_at, duration_seconds
+                   FROM one_time_searches 
+                   ORDER BY created_at DESC 
+                   LIMIT ?""",
+                (limit,)
+            )
+            
+            searches = []
+            for row in cursor:
+                search = dict(row)
+                if search['results']:
+                    try:
+                        search['results'] = json.loads(search['results'])
+                    except json.JSONDecodeError:
+                        search['results'] = {}
+                else:
+                    search['results'] = {}
+                searches.append(search)
+            
+            return searches
+
+    def get_one_time_search(self, search_id: int) -> Optional[Dict[str, Any]]:
+        """Get a specific one-time search by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """SELECT id, start_date, end_date, status, results,
+                          created_at, completed_at, duration_seconds
+                   FROM one_time_searches WHERE id = ?""",
+                (search_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                search = dict(row)
+                if search['results']:
+                    try:
+                        search['results'] = json.loads(search['results'])
+                    except json.JSONDecodeError:
+                        search['results'] = {}
+                return search
+            return None
+
+    def delete_old_one_time_searches(self, days_old: int = 30):
+        """Clean up old one-time search records"""
+        with self.get_connection() as conn:
+            conn.execute(
+                """DELETE FROM one_time_searches 
+                   WHERE created_at < datetime('now', '-{} days')""".format(days_old)
+            )
+            conn.commit()

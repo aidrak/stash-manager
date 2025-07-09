@@ -1,148 +1,136 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stash Manager - Settings</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<body>
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center">
-            <h1 class="mt-5">Settings</h1>
-            <div>
-                <a href="{{ url_for('add_scenes') }}" class="btn btn-secondary mt-5">Add Scenes</a>
-                <a href="{{ url_for('clean_scenes') }}" class="btn btn-secondary mt-5">Clean Scenes</a>
-                <a href="{{ url_for('tasks') }}" class="btn btn-secondary mt-5">Tasks</a>
-                <a href="{{ url_for('settings') }}" class="btn btn-primary mt-5 active">Settings</a>
+{% extends "base.html" %}
+
+{% block title %}Stash Manager - Settings{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1 class="mt-5">Settings</h1>
+</div>
+<p class="lead">This page allows you to configure the behavior of the Stash Manager.</p>
+
+<form method="post">
+    <!-- Add New Scenes Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_add_new_scenes" name="enable_add_new_scenes" {% if settings.jobs.add_new_scenes %}checked{% endif %}>
+                <label class="form-check-label" for="enable_add_new_scenes">
+                    Add New Scenes
+                </label>
             </div>
         </div>
-        <p class="lead">This page allows you to configure the behavior of the Stash Manager.</p>
-
-        <form method="post">
-            <!-- Add New Scenes Section -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="enable_add_new_scenes" name="enable_add_new_scenes" {% if settings.jobs.add_new_scenes %}checked{% endif %}>
-                        <label class="form-check-label" for="enable_add_new_scenes">
-                            Add New Scenes
-                        </label>
-                    </div>
-                </div>
-                <div class="card-body" id="add_new_scenes_settings">
-                    <div class="form-group">
-                        <label for="add_new_scenes_schedule">Interval</label>
-                        <select class="form-control" id="add_new_scenes_schedule" name="add_new_scenes_schedule">
-                            <option value="240" {% if settings.jobs.add_new_scenes_schedule == 240 %}selected{% endif %}>4 hours</option>
-                            <option value="360" {% if settings.jobs.add_new_scenes_schedule == 360 %}selected{% endif %}>6 hours</option>
-                            <option value="720" {% if settings.jobs.add_new_scenes_schedule == 720 %}selected{% endif %}>12 hours</option>
-                            <option value="1440" {% if settings.jobs.add_new_scenes_schedule == 1440 %}selected{% endif %}>1 day</option>
-                            <option value="2880" {% if settings.jobs.add_new_scenes_schedule == 2880 %}selected{% endif %}>2 days</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="add_new_scenes_search_back_days">Only add scenes newer than (days)</label>
-                        <input type="number" class="form-control" id="add_new_scenes_search_back_days" name="add_new_scenes_search_back_days" value="{{ settings.jobs.add_new_scenes_search_back_days }}">
-                    </div>
-                </div>
+        <div class="card-body" id="add_new_scenes_settings">
+            <div class="form-group">
+                <label for="add_new_scenes_schedule">Interval</label>
+                <select class="form-control" id="add_new_scenes_schedule" name="add_new_scenes_schedule">
+                    <option value="240" {% if settings.jobs.add_new_scenes_schedule == 240 %}selected{% endif %}>4 hours</option>
+                    <option value="360" {% if settings.jobs.add_new_scenes_schedule == 360 %}selected{% endif %}>6 hours</option>
+                    <option value="720" {% if settings.jobs.add_new_scenes_schedule == 720 %}selected{% endif %}>12 hours</option>
+                    <option value="1440" {% if settings.jobs.add_new_scenes_schedule == 1440 %}selected{% endif %}>1 day</option>
+                    <option value="2880" {% if settings.jobs.add_new_scenes_schedule == 2880 %}selected{% endif %}>2 days</option>
+                </select>
             </div>
-
-
-            <!-- Clean Existing Scenes Section -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="enable_clean_existing_scenes" name="enable_clean_existing_scenes" {% if settings.jobs.clean_existing_scenes %}checked{% endif %}>
-                        <label class="form-check-label" for="enable_clean_existing_scenes">
-                            Clean Existing Scenes
-                        </label>
-                    </div>
-                </div>
-                <div class="card-body" id="clean_existing_scenes_settings">
-                    <div class="form-group">
-                        <label for="clean_existing_scenes_schedule">Interval</label>
-                        <select class="form-control" id="clean_existing_scenes_schedule" name="clean_existing_scenes_schedule">
-                            <option value="240" {% if settings.jobs.clean_existing_scenes_schedule == 240 %}selected{% endif %}>4 hours</option>
-                            <option value="360" {% if settings.jobs.clean_existing_scenes_schedule == 360 %}selected{% endif %}>6 hours</option>
-                            <option value="720" {% if settings.jobs.clean_existing_scenes_schedule == 720 %}selected{% endif %}>12 hours</option>
-                            <option value="1440" {% if settings.jobs.clean_existing_scenes_schedule == 1440 %}selected{% endif %}>1 day</option>
-                            <option value="2880" {% if settings.jobs.clean_existing_scenes_schedule == 2880 %}selected{% endif %}>2 days</option>
-                        </select>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label for="add_new_scenes_search_back_days">Only add scenes newer than (days)</label>
+                <input type="number" class="form-control" id="add_new_scenes_search_back_days" name="add_new_scenes_search_back_days" value="{{ settings.jobs.add_new_scenes_search_back_days }}">
             </div>
-
-            <!-- Identify Section -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="enable_identify" name="enable_identify" {% if settings.identify.enabled %}checked{% endif %}>
-                        <label class="form-check-label" for="enable_identify">
-                            Identify
-                        </label>
-                    </div>
-                </div>
-                <div class="card-body" id="identify_settings">
-                    <div class="form-group">
-                        <label>Sources</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="identify_source_stashdb" name="identify_source_stashdb" {% if "stashdb" in settings.identify.sources %}checked{% endif %}>
-                            <label class="form-check-label" for="identify_source_stashdb">
-                                StashDB
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="identify_source_tpdb" name="identify_source_tpdb" {% if "tpdb" in settings.identify.sources %}checked{% endif %}>
-                            <label class="form-check-label" for="identify_source_tpdb">
-                                ThePornDB
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- General Settings Section -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    General Settings
-                </div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label for="log_level">Log Level</label>
-                        <select class="form-control" id="log_level" name="log_level">
-                            <option value="DEBUG" {% if settings.logs.level == "DEBUG" %}selected{% endif %}>Debug</option>
-                            <option value="INFO" {% if settings.logs.level == "INFO" %}selected{% endif %}>Info</option>
-                            <option value="WARNING" {% if settings.logs.level == "WARNING" %}selected{% endif %}>Warning</option>
-                            <option value="ERROR" {% if settings.logs.level == "ERROR" %}selected{% endif %}>Error</option>
-                        </select>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run" {% if settings.general.dry_run %}checked{% endif %}>
-                        <label class="form-check-label" for="dry_run">
-                            Dry Run
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary mt-4">Save Settings</button>
-        </form>
+        </div>
     </div>
 
-    <script>
-        function toggleSettings(checkboxId, settingsId) {
-            const checkbox = document.getElementById(checkboxId);
-            const settings = document.getElementById(settingsId);
-            settings.style.display = checkbox.checked ? 'block' : 'none';
-            checkbox.addEventListener('change', () => {
-                settings.style.display = checkbox.checked ? 'block' : 'none';
-            });
-        }
+    <!-- Clean Existing Scenes Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_clean_existing_scenes" name="enable_clean_existing_scenes" {% if settings.jobs.clean_existing_scenes %}checked{% endif %}>
+                <label class="form-check-label" for="enable_clean_existing_scenes">
+                    Clean Existing Scenes
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="clean_existing_scenes_settings">
+            <div class="form-group">
+                <label for="clean_existing_scenes_schedule">Interval</label>
+                <select class="form-control" id="clean_existing_scenes_schedule" name="clean_existing_scenes_schedule">
+                    <option value="240" {% if settings.jobs.clean_existing_scenes_schedule == 240 %}selected{% endif %}>4 hours</option>
+                    <option value="360" {% if settings.jobs.clean_existing_scenes_schedule == 360 %}selected{% endif %}>6 hours</option>
+                    <option value="720" {% if settings.jobs.clean_existing_scenes_schedule == 720 %}selected{% endif %}>12 hours</option>
+                    <option value="1440" {% if settings.jobs.clean_existing_scenes_schedule == 1440 %}selected{% endif %}>1 day</option>
+                    <option value="2880" {% if settings.jobs.clean_existing_scenes_schedule == 2880 %}selected{% endif %}>2 days</option>
+                </select>
+            </div>
+        </div>
+    </div>
 
-        toggleSettings('enable_add_new_scenes', 'add_new_scenes_settings');
-        toggleSettings('enable_clean_existing_scenes', 'clean_existing_scenes_settings');
-        toggleSettings('enable_identify', 'identify_settings');
-    </script>
-</body>
-</html>
+    <!-- Identify Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_identify" name="enable_identify" {% if settings.identify.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enable_identify">
+                    Identify
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="identify_settings">
+            <div class="form-group">
+                <label>Sources</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="identify_source_stashdb" name="identify_source_stashdb" {% if "stashdb" in settings.identify.sources %}checked{% endif %}>
+                    <label class="form-check-label" for="identify_source_stashdb">
+                        StashDB
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="identify_source_tpdb" name="identify_source_tpdb" {% if "tpdb" in settings.identify.sources %}checked{% endif %}>
+                    <label class="form-check-label" for="identify_source_tpdb">
+                        ThePornDB
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- General Settings Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            General Settings
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="log_level">Log Level</label>
+                <select class="form-control" id="log_level" name="log_level">
+                    <option value="DEBUG" {% if settings.logs.level == "DEBUG" %}selected{% endif %}>Debug</option>
+                    <option value="INFO" {% if settings.logs.level == "INFO" %}selected{% endif %}>Info</option>
+                    <option value="WARNING" {% if settings.logs.level == "WARNING" %}selected{% endif %}>Warning</option>
+                    <option value="ERROR" {% if settings.logs.level == "ERROR" %}selected{% endif %}>Error</option>
+                </select>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run" {% if settings.general.dry_run %}checked{% endif %}>
+                <label class="form-check-label" for="dry_run">
+                    Dry Run
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-4">Save Settings</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleSettings(checkboxId, settingsId) {
+        const checkbox = document.getElementById(checkboxId);
+        const settings = document.getElementById(settingsId);
+        settings.style.display = checkbox.checked ? 'block' : 'none';
+        checkbox.addEventListener('change', () => {
+            settings.style.display = checkbox.checked ? 'block' : 'none';
+        });
+    }
+
+    toggleSettings('enable_add_new_scenes', 'add_new_scenes_settings');
+    toggleSettings('enable_clean_existing_scenes', 'clean_existing_scenes_settings');
+    toggleSettings('enable_identify', 'identify_settings');
+</script>
+{% endblock %}

@@ -147,8 +147,7 @@ def clean_existing_scenes_from_stash(config: dict, stash_api: StashAPI):
             logger.debug(f"✅ KEEP: {scene_title} - {reason}")
             scenes_to_keep.append(scene_title)
         else:
-            logger.info(f"🔥 MARKED FOR DELETION: {scene_title}")
-            logger.debug(f"   Reason: {reason}")
+            logger.info(f"🔥 MARKED FOR DELETION: {scene_title} - {reason}")
             scenes_to_delete.append((scene_id, scene_title))
     
     # Summary
@@ -158,11 +157,6 @@ def clean_existing_scenes_from_stash(config: dict, stash_api: StashAPI):
     logger.info(f"✅ Scenes to keep: {len(scenes_to_keep)}")
     logger.info(f"🔥 Scenes to delete: {len(scenes_to_delete)}")
     
-    if scenes_to_delete:
-        logger.info(f"")
-        logger.info(f"🔥 SCENES TO BE DELETED:")
-        for _, title in scenes_to_delete:  # Show all scenes
-            logger.info(f"   💥 {title}")
     
     # Actually delete the scenes (if not dry run)
     if not dry_run and scenes_to_delete:

@@ -6,12 +6,15 @@ import threading
 import schedule
 import time
 import datetime
+import json  # NEW: Added for one-time search
+from datetime import timedelta  # NEW: Added for one-time search
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 
-# Add the src directory to Python path for absolute imports
+# Add the src directory to Python path for absolute imports FIRST
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+# THEN import from src (after path is set)
 from src.scheduler import scheduler
 from src.processor import add_new_scenes_to_whisparr, clean_existing_scenes_from_stash
 from src.stash_api import StashAPI
@@ -20,11 +23,20 @@ from src.local_stash_conditions import LOCAL_STASH_CONDITIONS  # Changed: separa
 from src.config import get_config
 from src.database_manager import DatabaseManager
 from src.config import get_database, get_filter_rules, save_filter_rules, get_setting, set_setting
+from src.one_time_search import one_time_search_bp, is_one_time_search_running
+from src.utils import set_active_page
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 
+# Register the one-time search blueprint
+app.register_blueprint(one_time_search_bp)
+
 CONFIG_PATH = '/config/app_state.yaml'
+
+# ============================================================================
+# FILTER CONTEXTS
+# ============================================================================
 
 # Filter contexts for different operations
 FILTER_CONTEXTS = {
@@ -274,27 +286,32 @@ def get_rules(context='add_scenes'):
 def save_rules(rules, context='add_scenes'):
     save_filter_rules(rules, context)
 
+
 @app.route('/')
 def index():
     return redirect(url_for('add_scenes'))
 
 @app.route('/add-scenes')
+@set_active_page('add_scenes')
 def add_scenes():
     rules = get_rules('add_scenes')
     current_context = FILTER_CONTEXTS['add_scenes']
-    return render_template('add_scenes.html', 
-                         rules=rules, 
-                         conditions=STASHDB_CONDITIONS,  # NEW
-                         current_context=current_context)
+    return 'add_scenes.html', {
+        'rules': rules,
+        'conditions': STASHDB_CONDITIONS,
+        'current_context': current_context
+    }
 
 @app.route('/clean-scenes')
+@set_active_page('clean_scenes')
 def clean_scenes():
     rules = get_rules('clean_scenes')
     current_context = FILTER_CONTEXTS['clean_scenes']
-    return render_template('clean_scenes.html', 
-                         rules=rules, 
-                         conditions=LOCAL_STASH_CONDITIONS,  # NEW
-                         current_context=current_context)
+    return 'clean_scenes.html', {
+        'rules': rules,
+        'conditions': LOCAL_STASH_CONDITIONS,
+        'current_context': current_context
+    }
 
 @app.route('/add-scenes/add', methods=['POST'])
 def add_add_rule():
@@ -409,6 +426,7 @@ def handle_reorder_rules(context):
     return '', 204
 
 @app.route('/tasks')
+@set_active_page('tasks')
 def tasks():
     config = get_config(strict=False)
     
@@ -446,7 +464,11 @@ def tasks():
             else:
                 last_run_times[job_name] = "Never run"
 
-    return render_template('tasks.html', config=config, next_run_times=next_run_times, last_run_times=last_run_times)
+    return 'tasks.html', {
+        'config': config,
+        'next_run_times': next_run_times,
+        'last_run_times': last_run_times
+    }
 
 def run_job_in_background(job_func, *args):
     """Runs a job in a background thread."""
@@ -464,6 +486,10 @@ def run_job(job_name):
         if not stash_url or not stash_api_key:
             return jsonify({'success': False, 'message': 'Missing Stash credentials. Please set STASH_URL and STASH_API_KEY environment variables.'}), 400
 
+        # NEW: Check for conflicts with one-time search
+        if job_name == 'add_new_scenes' and is_one_time_search_running():
+            return jsonify({'success': False, 'message': 'One-time search is running. Please wait for completion.'}), 409
+
         if job_name == 'add_new_scenes':
             job_thread = threading.Thread(target=add_new_scenes_job)
             job_thread.daemon = True
@@ -478,7 +504,7 @@ def run_job(job_name):
             friendly_name = "Clean Existing Scenes"
             
         elif job_name == 'identify':
-            job_thread = threading.Thread(target=scan_and_identify_job)  # Changed
+            job_thread = threading.Thread(target=scan_and_identify_job)
             job_thread.daemon = True
             job_thread.start()
             friendly_name = "Scan & Identify"
@@ -493,26 +519,8 @@ def run_job(job_name):
         traceback.print_exc()
         return jsonify({'success': False, 'message': f"Error starting job: {str(e)}"}), 500
 
-@app.route('/run_one_time_search')
-def run_one_time_search():
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    if not start_date or not end_date:
-        flash('Please provide a start and end date.', 'error')
-        return redirect(url_for('settings'))
-
-    job_thread = threading.Thread(target=add_new_scenes_job, args=(start_date, end_date))
-    job_thread.daemon = True
-    job_thread.start()
-    
-    flash('One-time search started in background. Check logs for progress and completion.', 'success')
-    return redirect(url_for('settings'))
-
-# Setup jobs on startup
-setup_jobs()
-
 @app.route('/settings', methods=['GET', 'POST'])
+@set_active_page('settings')
 def settings():
     if request.method == 'POST':
         # Update settings in database
@@ -533,10 +541,6 @@ def settings():
         set_setting('logs', 'level', request.form['log_level'])
         set_setting('general', 'dry_run', 'dry_run' in request.form)
 
-        # Save one-time search dates
-        set_setting('one_time_search', 'start_date', request.form.get('start_date'))
-        set_setting('one_time_search', 'end_date', request.form.get('end_date'))
-
         # Refresh job schedule with new settings
         setup_jobs()
         logging.info("Job schedule refreshed after settings update")
@@ -545,13 +549,15 @@ def settings():
         return redirect(url_for('settings'))
 
     # Load current settings for GET request
-    from src.config import get_config
     settings = get_config(strict=False)
-    return render_template('settings.html', settings=settings)
+    return 'settings.html', {'settings': settings}
+
+# Setup jobs on startup
+setup_jobs()
+
 if __name__ == '__main__':
     # Load config to setup logging before running app
     try:
-        from src.config import get_config
         config = get_config(strict=False)
         if config:
             setup_logging(config)
