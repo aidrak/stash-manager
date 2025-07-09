@@ -89,7 +89,7 @@
     </nav>
 
     <!-- Flash Messages -->
-    <div class="container">
+    <div id="flash-container" class="container">
         {% if get_flashed_messages %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
