@@ -186,3 +186,25 @@ def clean_existing_scenes_from_stash(config: dict, stash_api: StashAPI):
         logger.info("✅ No scenes matched the deletion criteria.")
     
     logger.info("🏁 === COMPLETED CLEAN EXISTING SCENES JOB ===")
+
+
+def generate_metadata(config: dict, stash_api: StashAPI):
+    """
+    Triggers the generation of metadata for all scenes in Stash.
+    """
+    logger.info("🚀 === STARTING GENERATE METADATA JOB ===")
+
+    dry_run = config.get('general', {}).get('dry_run', False)
+    logger.info(f"💧 DRY RUN MODE: {'ENABLED' if dry_run else 'DISABLED'}")
+
+    if not dry_run:
+        try:
+            job_id = stash_api.trigger_generate()
+            logger.info(f"✅ Successfully triggered metadata generation with job ID: {job_id}")
+            stash_api.wait_for_job_completion(job_id)
+        except Exception as e:
+            logger.error(f"❌ Failed to trigger metadata generation: {e}")
+    else:
+        logger.info("💧 DRY RUN - Would have triggered metadata generation.")
+
+    logger.info("🏁 === COMPLETED GENERATE METADATA JOB ===")

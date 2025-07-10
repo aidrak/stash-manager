@@ -74,8 +74,25 @@
             <td>{{ next_run_times.scan_and_identify }}</td>
             <td>
                 <button class="btn btn-primary btn-sm run-job-btn" 
-                        data-job="identify" 
-                        data-url="{{ url_for('run_job', job_name='identify') }}">
+                        data-job="scan_and_identify" 
+                        data-url="{{ url_for('run_job', job_name='scan_and_identify') }}">
+                    <span class="btn-text">Run Now</span>
+                    <span class="btn-spinner d-none">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        Running...
+                    </span>
+                </button>
+            </td>
+        </tr>
+        <tr>
+            <td>Generate Content</td>
+            <td>Manual</td>
+            <td>{{ last_run_times.generate_metadata }}</td>
+            <td>N/A</td>
+            <td>
+                <button class="btn btn-primary btn-sm run-job-btn" 
+                        data-job="generate_metadata" 
+                        data-url="{{ url_for('run_job', job_name='generate_metadata') }}">
                     <span class="btn-text">Run Now</span>
                     <span class="btn-spinner d-none">
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>

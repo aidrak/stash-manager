@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # THEN import from src (after path is set)
 from src.scheduler import scheduler
-from src.processor import add_new_scenes_to_whisparr, clean_existing_scenes_from_stash
+from src.processor import add_new_scenes_to_whisparr, clean_existing_scenes_from_stash, generate_metadata
 from src.stash_api import StashAPI
 from src.stashdb_conditions import STASHDB_CONDITIONS  # Changed: separate files
 from src.local_stash_conditions import LOCAL_STASH_CONDITIONS  # Changed: separate files
@@ -101,11 +101,12 @@ def setup_jobs():
             job.tag = 'add_new_scenes'  # Add tag for identification
             logging.info(f"Scheduled 'Add New Scenes' job every {interval} minutes")
         
-        if jobs_config.get('clean_existing_scenes'):
+        if jobs_config.get('clean_existing_scenes', {}).get('enabled'):
             interval = jobs_config.get('clean_existing_scenes_schedule', 1440)
             job = schedule.every(interval).minutes.do(clean_existing_scenes_job)
-            job.tag = 'clean_existing_scenes'  # Add tag for identification
+            job.tag = 'clean_existing_scenes'
             logging.info(f"Scheduled 'Clean Existing Scenes' job every {interval} minutes")
+>>>>>>> Stashed changes
         
         if config.get('identify', {}).get('enabled'):
             job = schedule.every().day.at("02:00").do(scan_and_identify_job)
@@ -246,6 +247,29 @@ def scan_and_identify_job():
     except Exception as e:
         logging.error(f"Error in scan_and_identify job: {e}")
 
+def generate_metadata_job():
+    """Wrapper for generate_metadata job"""
+    try:
+        config = get_config(strict=True)
+        if not config:
+            logging.error("Could not load config for generate_metadata job.")
+            return
+
+        setup_logging(config)
+
+        stash_url = os.environ.get('STASH_URL')
+        stash_api_key = os.environ.get('STASH_API_KEY')
+        if stash_url and stash_api_key:
+            stash_api = StashAPI(url=stash_url, api_key=stash_api_key)
+            generate_metadata(config, stash_api)
+        else:
+            logging.error("Missing Stash configuration")
+        
+        save_last_run_time('generate_metadata')
+        logging.info("Scheduled 'Generate Metadata' job completed")
+    except Exception as e:
+        logging.error(f"Error in generate_metadata job: {e}")
+
 def save_last_run_time(job_name):
     """Save the last run time for a job to the config file"""
     try:
@@ -270,7 +294,8 @@ def get_last_run_time(job_name):
 JOB_NAMES = {
     'add_new_scenes': 'Add New Scenes',
     'clean_existing_scenes': 'Clean Existing Scenes', 
-    'scan_and_identify': 'Scan & Identify'
+    'scan_and_identify': 'Scan & Identify',
+    'generate_metadata': 'Generate Content'
 }
 
 # Start scheduler in background thread
@@ -452,7 +477,7 @@ def tasks():
             last_run_times[job_name] = "Never run"
 
     # Ensure we have entries for all possible jobs
-    job_names = ['add_new_scenes', 'clean_existing_scenes', 'scan_and_identify']
+    job_names = ['add_new_scenes', 'clean_existing_scenes', 'scan_and_identify', 'generate_metadata']
     for job_name in job_names:
         if job_name not in next_run_times:
             next_run_times[job_name] = "Not scheduled"
@@ -503,11 +528,17 @@ def run_job(job_name):
             job_thread.start()
             friendly_name = "Clean Existing Scenes"
             
-        elif job_name == 'identify':
+        elif job_name == 'scan_and_identify':
             job_thread = threading.Thread(target=scan_and_identify_job)
             job_thread.daemon = True
             job_thread.start()
             friendly_name = "Scan & Identify"
+>>>>>>> Stashed changes
+        elif job_name == 'generate_metadata':
+            job_thread = threading.Thread(target=generate_metadata_job)
+            job_thread.daemon = True
+            job_thread.start()
+            friendly_name = "Generate Content"
         else:
             return jsonify({'success': False, 'message': f'Unknown job: {job_name}'}), 400
 
@@ -527,9 +558,12 @@ def settings():
         set_setting('jobs', 'add_new_scenes', 'enable_add_new_scenes' in request.form)
         set_setting('jobs', 'add_new_scenes_schedule', int(request.form['add_new_scenes_schedule']))
         set_setting('jobs', 'add_new_scenes_search_back_days', int(request.form['add_new_scenes_search_back_days']))
-        set_setting('jobs', 'clean_existing_scenes', 'enable_clean_existing_scenes' in request.form)
-        set_setting('jobs', 'clean_existing_scenes_schedule', int(request.form['clean_existing_scenes_schedule']))
+        set_setting('jobs', 'clean_existing_scenes', {
+            'enabled': 'enable_clean_existing_scenes' in request.form,
+            'schedule': int(request.form['clean_existing_scenes_schedule'])
+        })
         set_setting('identify', 'enabled', 'enable_identify' in request.form)
+>>>>>>> Stashed changes
         
         sources = []
         if 'identify_source_stashdb' in request.form:

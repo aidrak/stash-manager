@@ -110,6 +110,40 @@ class StashAPI:
             logger.error(f"Failed to trigger scan: {str(e)}")
             raise
     
+    def trigger_generate(self) -> str:
+        """Trigger a metadata generation in Stash
+        
+        Returns:
+            Job ID for the generate task
+        """
+        query = """
+        mutation MetadataGenerate($input: GenerateMetadataInput!) {
+            metadataGenerate(input: $input)
+        }
+        """
+        
+        variables = {
+            "input": {
+                "clipPreviews": False,
+                "covers": True,
+                "imagePreviews": True,
+                "markers": False,
+                "phashes": True,
+                "previews": False,
+                "sprites": False,
+                "transcodes": False
+            }
+        }
+        
+        try:
+            result = self.execute_query(query, variables)
+            job_id = result["data"]["metadataGenerate"]
+            logger.info(f"Triggered generate with job ID: {job_id}")
+            return job_id
+        except Exception as e:
+            logger.error(f"Failed to trigger generate: {str(e)}")
+            raise
+    
     def get_job_status(self, job_id: str) -> Dict:
         """Get the status of a job
         
