@@ -106,7 +106,6 @@ def setup_jobs():
             job = schedule.every(interval).minutes.do(clean_existing_scenes_job)
             job.tag = 'clean_existing_scenes'
             logging.info(f"Scheduled 'Clean Existing Scenes' job every {interval} minutes")
->>>>>>> Stashed changes
         
         if config.get('identify', {}).get('enabled'):
             job = schedule.every().day.at("02:00").do(scan_and_identify_job)
@@ -533,7 +532,6 @@ def run_job(job_name):
             job_thread.daemon = True
             job_thread.start()
             friendly_name = "Scan & Identify"
->>>>>>> Stashed changes
         elif job_name == 'generate_metadata':
             job_thread = threading.Thread(target=generate_metadata_job)
             job_thread.daemon = True
@@ -563,7 +561,6 @@ def settings():
             'schedule': int(request.form['clean_existing_scenes_schedule'])
         })
         set_setting('identify', 'enabled', 'enable_identify' in request.form)
->>>>>>> Stashed changes
         
         sources = []
         if 'identify_source_stashdb' in request.form:
