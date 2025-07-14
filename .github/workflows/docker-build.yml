@@ -6,7 +6,7 @@
 #    - Generate new token with 'write:packages' permission
 # 2. Add token to repository secrets:
 #    - Repo Settings → Secrets and variables → Actions
-#    - Add new secret: GHCR_TOKEN = your token value
+#    - Add new repository secret: GHCR_TOKEN = your token value
 # 3. Use in Unraid as: ghcr.io/your-username/repo-name:latest
 
 name: Build and Push Docker Image
