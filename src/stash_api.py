@@ -93,7 +93,7 @@ class StashAPI:
                 "rescan": False,
                 "scanGenerateClipPreviews": True,
                 "scanGenerateCovers": True,
-                "scanGenerateImagePreviews": True,
+                "scanGenerateImagePreviews": False,
                 "scanGeneratePhashes": True,
                 "scanGeneratePreviews": True,
                 "scanGenerateSprites": True,
@@ -129,9 +129,15 @@ class StashAPI:
                 "imagePreviews": True,
                 "markers": False,
                 "phashes": True,
-                "previews": False,
-                "sprites": False,
-                "transcodes": False
+                "previewOptions": {
+                    "previewExcludeEnd": "0",
+                    "previewExcludeStart": "0",
+                    "previewPreset": "slow",
+                    "previewSegmentDuration": "0.75",
+                    "previewSegments": "12"
+                },
+                "previews": True,
+                "sprites": False
             }
         }
         
@@ -222,11 +228,8 @@ class StashAPI:
         logger.error(f"Timeout waiting for job {job_id}")
         return False
     
-    def trigger_identify(self, sources: List[str]) -> str:
+    def trigger_identify(self) -> str:
         """Trigger metadata identification in Stash
-
-        Args:
-            sources: A list of source names like ["stashdb", "tpdb"]
 
         Returns:
             Job ID for the identify task
@@ -237,48 +240,39 @@ class StashAPI:
         }
         """
 
-        # Map source names to their GraphQL endpoints
-        source_map = {
-            "stashdb": "https://stashdb.org/graphql",
-            "tpdb": "https://theporndb.net/graphql"
-        }
-
-        # Build the sources list for the GraphQL query
-        query_sources = []
-        for source_name in sources:
-            if source_name in source_map:
-                query_sources.append({
-                    "source": {
-                        "stash_box_endpoint": source_map[source_name]
-                    }
-                })
-
         variables = {
             "input": {
-                "sources": query_sources,
+                "sources": [
+                    {"source": {"stash_box_endpoint": "https://stashdb.org/graphql"}},
+                    {"source": {"stash_box_endpoint": "https://theporndb.net/graphql"}},
+                    {
+                        "source": {"scraper_id": "builtin_autotag"},
+                        "options": {
+                            "fieldOptions": [],
+                            "setCoverImage": None,
+                            "setOrganized": False,
+                            "includeMalePerformers": None,
+                            "skipMultipleMatches": True,
+                            "skipMultipleMatchTag": None,
+                            "skipSingleNamePerformers": True,
+                            "skipSingleNamePerformerTag": None
+                        }
+                    }
+                ],
                 "options": {
                     "fieldOptions": [
-                        {
-                            "field": "title",
-                            "strategy": "OVERWRITE",
-                            "createMissing": True
-                        },
-                        {
-                            "field": "performers",
-                            "strategy": "MERGE",
-                            "createMissing": True
-                        },
-                        {
-                            "field": "tags",
-                            "strategy": "MERGE",
-                            "createMissing": True
-                        }
+                        {"field": "title", "strategy": "OVERWRITE", "createMissing": None},
+                        {"field": "studio", "strategy": "MERGE", "createMissing": True},
+                        {"field": "performers", "strategy": "MERGE", "createMissing": True},
+                        {"field": "tags", "strategy": "MERGE", "createMissing": True}
                     ],
                     "setCoverImage": True,
                     "setOrganized": True,
                     "includeMalePerformers": True,
-                    "skipMultipleMatches": True,
-                    "skipSingleNamePerformers": True
+                    "skipMultipleMatches": False,
+                    "skipMultipleMatchTag": None,
+                    "skipSingleNamePerformers": False,
+                    "skipSingleNamePerformerTag": None
                 },
                 "paths": []
             }

@@ -13,6 +13,5 @@ chown nobody:users "$CONFIG_DIR"
 
 # Start the web application, replacing the shell process with the Python process
 echo "Starting web application..."
-cd /home/nobody
 export PYTHONPATH=/home/nobody:$PYTHONPATH
-exec gosu nobody python src/app.py
+exec python /home/nobody/src/app.py

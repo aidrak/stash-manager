@@ -53,7 +53,7 @@ FILTER_CONTEXTS = {
 def run_scheduler():
     """Run the job scheduler in a separate thread"""
     while True:
-        schedule.run_pending()
+        scheduler.run_pending()
         time.sleep(1)
 
 import coloredlogs
@@ -90,27 +90,32 @@ def setup_jobs():
         setup_logging(config)
 
         # Clear existing jobs
-        schedule.clear()
+        scheduler.clear()
         
         # Setup jobs based on config
         jobs_config = config.get('jobs', {})
         
-        if jobs_config.get('add_new_scenes'):
-            interval = jobs_config.get('add_new_scenes_schedule', 720)
-            job = schedule.every(interval).minutes.do(add_new_scenes_job)
-            job.tag = 'add_new_scenes'  # Add tag for identification
+        if jobs_config.get('add_new_scenes', {}).get('enabled'):
+            interval = int(jobs_config.get('add_new_scenes', {}).get('schedule', 720))
+            job = scheduler.every(interval).minutes.do(add_new_scenes_job)
+            job.tag = 'add_new_scenes'
             logging.info(f"Scheduled 'Add New Scenes' job every {interval} minutes")
-        
+
         if jobs_config.get('clean_existing_scenes', {}).get('enabled'):
-            interval = jobs_config.get('clean_existing_scenes_schedule', 1440)
-            job = schedule.every(interval).minutes.do(clean_existing_scenes_job)
+            interval = int(jobs_config.get('clean_existing_scenes', {}).get('schedule', 1440))
+            job = scheduler.every(interval).minutes.do(clean_existing_scenes_job)
             job.tag = 'clean_existing_scenes'
             logging.info(f"Scheduled 'Clean Existing Scenes' job every {interval} minutes")
-        
-        if config.get('identify', {}).get('enabled'):
-            job = schedule.every().day.at("02:00").do(scan_and_identify_job)
-            job.tag = 'scan_and_identify'  # Changed from 'identify'
+
+        if jobs_config.get('scan_and_identify', {}).get('enabled'):
+            job = scheduler.every().day.at("02:00").do(scan_and_identify_job)
+            job.tag = 'scan_and_identify'
             logging.info("Scheduled 'Scan & Identify' job daily at 02:00")
+
+        if jobs_config.get('generate_metadata', {}).get('enabled'):
+            job = scheduler.every().day.at("03:00").do(generate_metadata_job)
+            job.tag = 'generate_metadata'
+            logging.info("Scheduled 'Generate Metadata' job daily at 03:00")
             
     except Exception as e:
         logging.error(f"Error setting up jobs: {e}")
@@ -191,6 +196,7 @@ def clean_existing_scenes_job():
         print("DEBUG: Job seems to have completed successfully.")
         logging.info("=== COMPLETED CLEAN EXISTING SCENES JOB ===")
         logging.info("Scheduled 'Clean Existing Scenes' job completed")
+        save_last_run_time('clean_existing_scenes')
         
     except Exception as e:
         print(f"FATAL ERROR in clean_existing_scenes_job: {e}")
@@ -226,8 +232,7 @@ def scan_and_identify_job():
                 logging.info("Scan completed successfully. Starting identify...")
                 
                 # Step 3: Trigger identify
-                sources = config.get('identify', {}).get('sources', [])
-                identify_job_id = stash_api.trigger_identify(sources=sources)
+                identify_job_id = stash_api.trigger_identify()
                 
                 # Step 4: Wait for identify to complete
                 logging.info("Waiting for identify to complete...")
@@ -458,7 +463,7 @@ def tasks():
     last_run_times = {}
     
     # Get schedule information using tags
-    for job in schedule.jobs:
+    for job in scheduler.jobs:
         job_name = getattr(job, 'tag', 'unknown')
         
         if job.next_run:
@@ -553,14 +558,21 @@ def run_job(job_name):
 def settings():
     if request.method == 'POST':
         # Update settings in database
-        set_setting('jobs', 'add_new_scenes', 'enable_add_new_scenes' in request.form)
-        set_setting('jobs', 'add_new_scenes_schedule', int(request.form['add_new_scenes_schedule']))
-        set_setting('jobs', 'add_new_scenes_search_back_days', int(request.form['add_new_scenes_search_back_days']))
+        set_setting('jobs', 'add_new_scenes', {
+            'enabled': 'enable_add_new_scenes' in request.form,
+            'schedule': int(request.form['add_new_scenes_schedule']),
+            'search_back_days': int(request.form['add_new_scenes_search_back_days'])
+        })
         set_setting('jobs', 'clean_existing_scenes', {
             'enabled': 'enable_clean_existing_scenes' in request.form,
             'schedule': int(request.form['clean_existing_scenes_schedule'])
         })
-        set_setting('identify', 'enabled', 'enable_identify' in request.form)
+        set_setting('jobs', 'scan_and_identify', {
+            'enabled': 'enable_identify' in request.form
+        })
+        set_setting('jobs', 'generate_metadata', {
+            'enabled': 'enable_generate_metadata' in request.form
+        })
         
         sources = []
         if 'identify_source_stashdb' in request.form:
