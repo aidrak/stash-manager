@@ -96,26 +96,57 @@ def setup_jobs():
         jobs_config = config.get('jobs', {})
         
         if jobs_config.get('add_new_scenes', {}).get('enabled'):
-            interval = int(jobs_config.get('add_new_scenes', {}).get('schedule', 720))
-            job = scheduler.every(interval).minutes.do(add_new_scenes_job)
-            job.tag = 'add_new_scenes'
-            logging.info(f"Scheduled 'Add New Scenes' job every {interval} minutes")
+            interval_str = jobs_config.get('add_new_scenes', {}).get('schedule', 'daily')
+            try:
+                if 'hour' in interval_str:
+                    hours = int(interval_str.split('-')[0])
+                    job = scheduler.every(hours).hours.do(add_new_scenes_job)
+                elif interval_str == 'daily':
+                    job = scheduler.every().day.at("01:00").do(add_new_scenes_job)
+                job.tag = 'add_new_scenes'
+                logging.info(f"Scheduled 'Add New Scenes' job with interval: {interval_str}")
+            except (ValueError, IndexError) as e:
+                logging.error(f"Invalid interval format for add_new_scenes: {interval_str}. Error: {e}")
+
 
         if jobs_config.get('clean_existing_scenes', {}).get('enabled'):
-            interval = int(jobs_config.get('clean_existing_scenes', {}).get('schedule', 1440))
-            job = scheduler.every(interval).minutes.do(clean_existing_scenes_job)
-            job.tag = 'clean_existing_scenes'
-            logging.info(f"Scheduled 'Clean Existing Scenes' job every {interval} minutes")
+            interval_str = jobs_config.get('clean_existing_scenes', {}).get('schedule', 'daily')
+            try:
+                if 'hour' in interval_str:
+                    hours = int(interval_str.split('-')[0])
+                    job = scheduler.every(hours).hours.do(clean_existing_scenes_job)
+                elif interval_str == 'daily':
+                    job = scheduler.every().day.at("01:00").do(clean_existing_scenes_job)
+                job.tag = 'clean_existing_scenes'
+                logging.info(f"Scheduled 'Clean Existing Scenes' job with interval: {interval_str}")
+            except (ValueError, IndexError) as e:
+                logging.error(f"Invalid interval format for clean_existing_scenes: {interval_str}. Error: {e}")
 
         if jobs_config.get('scan_and_identify', {}).get('enabled'):
-            job = scheduler.every().day.at("02:00").do(scan_and_identify_job)
-            job.tag = 'scan_and_identify'
-            logging.info("Scheduled 'Scan & Identify' job daily at 02:00")
+            interval_str = jobs_config.get('scan_and_identify', {}).get('schedule', 'daily')
+            try:
+                if 'hour' in interval_str:
+                    hours = int(interval_str.split('-')[0])
+                    job = scheduler.every(hours).hours.do(scan_and_identify_job)
+                elif interval_str == 'daily':
+                    job = scheduler.every().day.at("02:00").do(scan_and_identify_job)
+                job.tag = 'scan_and_identify'
+                logging.info(f"Scheduled 'Scan & Identify' job with interval: {interval_str}")
+            except (ValueError, IndexError) as e:
+                logging.error(f"Invalid interval format for scan_and_identify: {interval_str}. Error: {e}")
 
         if jobs_config.get('generate_metadata', {}).get('enabled'):
-            job = scheduler.every().day.at("03:00").do(generate_metadata_job)
-            job.tag = 'generate_metadata'
-            logging.info("Scheduled 'Generate Metadata' job daily at 03:00")
+            interval_str = jobs_config.get('generate_metadata', {}).get('schedule', 'daily')
+            try:
+                if 'hour' in interval_str:
+                    hours = int(interval_str.split('-')[0])
+                    job = scheduler.every(hours).hours.do(generate_metadata_job)
+                elif interval_str == 'daily':
+                    job = scheduler.every().day.at("03:00").do(generate_metadata_job)
+                job.tag = 'generate_metadata'
+                logging.info(f"Scheduled 'Generate Metadata' job with interval: {interval_str}")
+            except (ValueError, IndexError) as e:
+                logging.error(f"Invalid interval format for generate_metadata: {interval_str}. Error: {e}")
             
     except Exception as e:
         logging.error(f"Error setting up jobs: {e}")
@@ -458,6 +489,7 @@ def handle_reorder_rules(context):
 @set_active_page('tasks')
 def tasks():
     config = get_config(strict=False)
+    jobs_config = config.get('jobs', {})
     
     next_run_times = {}
     last_run_times = {}
@@ -494,7 +526,7 @@ def tasks():
                 last_run_times[job_name] = "Never run"
 
     return 'tasks.html', {
-        'config': config,
+        'config': jobs_config,
         'next_run_times': next_run_times,
         'last_run_times': last_run_times
     }
@@ -560,18 +592,20 @@ def settings():
         # Update settings in database
         set_setting('jobs', 'add_new_scenes', {
             'enabled': 'enable_add_new_scenes' in request.form,
-            'schedule': int(request.form['add_new_scenes_schedule']),
+            'schedule': request.form['add_new_scenes_schedule'],
             'search_back_days': int(request.form['add_new_scenes_search_back_days'])
         })
         set_setting('jobs', 'clean_existing_scenes', {
             'enabled': 'enable_clean_existing_scenes' in request.form,
-            'schedule': int(request.form['clean_existing_scenes_schedule'])
+            'schedule': request.form['clean_existing_scenes_schedule']
         })
         set_setting('jobs', 'scan_and_identify', {
-            'enabled': 'enable_identify' in request.form
+            'enabled': 'enable_identify' in request.form,
+            'schedule': request.form['scan_and_identify_schedule']
         })
         set_setting('jobs', 'generate_metadata', {
-            'enabled': 'enable_generate_metadata' in request.form
+            'enabled': 'enable_generate_metadata' in request.form,
+            'schedule': request.form['generate_metadata_schedule']
         })
         
         sources = []

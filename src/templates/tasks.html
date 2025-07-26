@@ -21,14 +21,7 @@
     <tbody>
         <tr>
             <td>Add New Scenes</td>
-            <td>
-                {% if config.jobs.add_new_scenes_schedule == 240 %}4 hours{% endif %}
-                {% if config.jobs.add_new_scenes_schedule == 360 %}6 hours{% endif %}
-                {% if config.jobs.add_new_scenes_schedule == 720 %}12 hours{% endif %}
-                {% if config.jobs.add_new_scenes_schedule == 1440 %}1 day{% endif %}
-                {% if config.jobs.add_new_scenes_schedule == 2880 %}2 days{% endif %}
-                {% if config.jobs.add_new_scenes_schedule not in [240, 360, 720, 1440, 2880] %}{{ config.jobs.add_new_scenes_schedule }} minutes{% endif %}
-            </td>
+            <td>{{ config.add_new_scenes.schedule|replace('-', ' ')|title }}</td>
             <td>{{ last_run_times.add_new_scenes }}</td>
             <td>{{ next_run_times.add_new_scenes }}</td>
             <td>
@@ -45,14 +38,7 @@
         </tr>
         <tr>
             <td>Clean Existing Scenes</td>
-            <td>
-                {% if config.jobs.clean_existing_scenes_schedule == 240 %}4 hours{% endif %}
-                {% if config.jobs.clean_existing_scenes_schedule == 360 %}6 hours{% endif %}
-                {% if config.jobs.clean_existing_scenes_schedule == 720 %}12 hours{% endif %}
-                {% if config.jobs.clean_existing_scenes_schedule == 1440 %}1 day{% endif %}
-                {% if config.jobs.clean_existing_scenes_schedule == 2880 %}2 days{% endif %}
-                {% if config.jobs.clean_existing_scenes_schedule not in [240, 360, 720, 1440, 2880] %}{{ config.jobs.clean_existing_scenes_schedule }} minutes{% endif %}
-            </td>
+            <td>{{ config.clean_existing_scenes.schedule|replace('-', ' ')|title }}</td>
             <td>{{ last_run_times.clean_existing_scenes }}</td>
             <td>{{ next_run_times.clean_existing_scenes }}</td>
             <td>
@@ -69,7 +55,7 @@
         </tr>
         <tr>
             <td>Scan & Identify Scenes</td>
-            <td>1 day</td>
+            <td>{{ config.scan_and_identify.schedule|replace('-', ' ')|title }}</td>
             <td>{{ last_run_times.scan_and_identify }}</td>
             <td>{{ next_run_times.scan_and_identify }}</td>
             <td>
@@ -86,7 +72,7 @@
         </tr>
         <tr>
             <td>Generate Content</td>
-            <td>1 day</td>
+            <td>{{ config.generate_metadata.schedule|replace('-', ' ')|title }}</td>
             <td>{{ last_run_times.generate_metadata }}</td>
             <td>{{ next_run_times.generate_metadata }}</td>
             <td>
