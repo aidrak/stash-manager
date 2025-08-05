@@ -91,6 +91,9 @@ def one_time_search_job(start_date, end_date, search_config=None):
         logger.warning("One-time search already running - skipping")
         return
     
+    # Extract dry_run flag from search_config
+    dry_run = search_config.get('dry_run', False) if search_config else False
+    
     # Record search in database
     db = get_database()
     search_id = db.record_one_time_search(start_date, end_date, 'running')
@@ -99,7 +102,8 @@ def one_time_search_job(start_date, end_date, search_config=None):
         update_job_progress(job_name, 
             status='loading_config',
             message='Loading configuration...',
-            progress=5
+            progress=5,
+            dry_run=dry_run  # Track dry run status in progress
         )
         
         config = get_config(strict=True)
@@ -109,7 +113,8 @@ def one_time_search_job(start_date, end_date, search_config=None):
         update_job_progress(job_name,
             status='connecting', 
             message='Connecting to Stash...',
-            progress=10
+            progress=10,
+            dry_run=dry_run
         )
 
         import os
@@ -121,11 +126,23 @@ def one_time_search_job(start_date, end_date, search_config=None):
             
         stash_api = StashAPI(url=stash_url, api_key=stash_api_key)
         
-        update_job_progress(job_name,
-            status='searching',
-            message=f'Searching scenes from {start_date} to {end_date}...',
-            progress=20
-        )
+        # Log dry run status prominently
+        if dry_run:
+            logger.info(f"🔍 DRY RUN: Searching scenes from {start_date} to {end_date} (no scenes will be added)")
+            update_job_progress(job_name,
+                status='searching',
+                message=f'DRY RUN: Searching scenes from {start_date} to {end_date}...',
+                progress=20,
+                dry_run=True
+            )
+        else:
+            logger.info(f"🔥 LIVE SEARCH: Searching and adding scenes from {start_date} to {end_date}")
+            update_job_progress(job_name,
+                status='searching',
+                message=f'Searching scenes from {start_date} to {end_date}...',
+                progress=20,
+                dry_run=False
+            )
         
         # Enhanced version of add_new_scenes_to_whisparr with progress callbacks
         def progress_callback(current, total, message=""):
@@ -133,29 +150,41 @@ def one_time_search_job(start_date, end_date, search_config=None):
             update_job_progress(job_name,
                 progress=progress,
                 message=message,
-                scenes_processed=current
+                scenes_processed=current,
+                dry_run=dry_run
             )
         
-        # Call the processor with progress tracking
+        # Call the processor with progress tracking AND dry_run flag
         result = add_new_scenes_to_whisparr_with_progress(
             config, stash_api, 
             start_date=start_date, 
             end_date=end_date,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            dry_run=dry_run  # Pass dry_run flag here
         )
+        
+        # Log final status with dry run context
+        if dry_run:
+            status_message = f'Dry run completed - {result.get("scenes_added", 0)} scenes would be added'
+            logger.info(f"💧 {status_message}")
+        else:
+            status_message = f'Search completed - {result.get("scenes_added", 0)} scenes added'
+            logger.info(f"✅ {status_message}")
         
         update_job_progress(job_name,
             status='completed',
-            message='Search completed successfully',
+            message=status_message,
             progress=100,
             scenes_added=result.get('scenes_added', 0),
-            total_found=result.get('total_found', 0)
+            total_found=result.get('total_found', 0),
+            dry_run=dry_run
         )
         
-        # Update database record
+        # Update database record with dry_run info
+        result['dry_run'] = dry_run
         db.finish_one_time_search(search_id, 'completed', result)
         
-        logger.info(f"One-time search completed: {start_date} to {end_date}")
+        logger.info(f"One-time search completed: {start_date} to {end_date} (dry_run: {dry_run})")
         
     except Exception as e:
         error_msg = str(e)
@@ -164,16 +193,17 @@ def one_time_search_job(start_date, end_date, search_config=None):
         update_job_progress(job_name,
             status='failed',
             message=f'Search failed: {error_msg}',
-            progress=0
+            progress=0,
+            dry_run=dry_run
         )
         
         # Update database record
-        db.finish_one_time_search(search_id, 'failed', {'error': error_msg})
+        db.finish_one_time_search(search_id, 'failed', {'error': error_msg, 'dry_run': dry_run})
         
     finally:
         release_job_lock(job_name)
 
-def add_new_scenes_to_whisparr_with_progress(config, stash_api, start_date=None, end_date=None, progress_callback=None):
+def add_new_scenes_to_whisparr_with_progress(config, stash_api, start_date=None, end_date=None, progress_callback=None, dry_run=False):
     """
     Enhanced version of add_new_scenes_to_whisparr with progress tracking.
     This is a wrapper around your existing processor function.
@@ -195,7 +225,7 @@ def add_new_scenes_to_whisparr_with_progress(config, stash_api, start_date=None,
         update_progress(20, 100, f"Searching scenes from {start_date} to {end_date}...")
         
         # Call your existing function
-        result = add_new_scenes_to_whisparr(config, stash_api, start_date, end_date)
+        result = add_new_scenes_to_whisparr(config, stash_api, start_date, end_date, progress_callback=progress_callback, dry_run=dry_run)
         
         update_progress(90, 100, "Finalizing results...")
         

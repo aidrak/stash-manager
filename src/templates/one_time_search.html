@@ -267,20 +267,37 @@
 
     // Update progress
     function updateProgress() {
-        fetch('/one-time-search/progress')
-        .then(response => response.json())
-        .then(data => {
-            if (data.is_running) {
-                updateProgressDisplay(data.progress);
-            } else {
-                stopProgressMonitoring();
-                refreshHistory();
+        const formElements = document.querySelectorAll('#searchForm input, #searchForm button, .btn');
+        
+        // Disable UI elements during fetch, except for the cancel button
+        formElements.forEach(function(el) {
+            if (el.id !== 'cancelBtn') {
+                el.disabled = true;
             }
-        })
-        .catch(error => {
-            console.error('Error fetching progress:', error);
-            stopProgressMonitoring();
         });
+
+        fetch('/one-time-search/progress')
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.is_running) {
+                    updateProgressDisplay(data.progress);
+                } else {
+                    stopProgressMonitoring();
+                    refreshHistory();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error fetching progress:', error);
+                stopProgressMonitoring();
+            })
+            .finally(function() {
+                // Re-enable UI elements after fetch, unless a search is still running
+                if (!isSearchRunning) {
+                    formElements.forEach(function(el) { el.disabled = false; });
+                }
+            });
     }
 
     // Update progress display

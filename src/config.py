@@ -50,13 +50,23 @@ def get_config(strict=True):
                 'root_folder': os.environ.get('WHISPARR_ROOT_FOLDER', '/data')
             },
             'jobs': {
-                'add_new_scenes': settings.get('jobs', {}).get('add_new_scenes', True),
-                'add_new_scenes_schedule': settings.get('jobs', {}).get('add_new_scenes_schedule', 720),
-                'add_new_scenes_search_back_days': settings.get('jobs', {}).get('add_new_scenes_search_back_days', 7),
-                'clean_existing_scenes': settings.get('jobs', {}).get('clean_existing_scenes', False),
-                'clean_existing_scenes_schedule': settings.get('jobs', {}).get('clean_existing_scenes_schedule', 1440),
-                'scan_and_identify': settings.get('jobs', {}).get('scan_and_identify', False),
-                'generate_metadata': settings.get('jobs', {}).get('generate_metadata', False)
+                'add_new_scenes': settings.get('jobs', {}).get('add_new_scenes', {
+                    'enabled': True,
+                    'schedule': 'daily',
+                    'search_back_days': 7
+                }),
+                'clean_existing_scenes': settings.get('jobs', {}).get('clean_existing_scenes', {
+                    'enabled': False,
+                    'schedule': 'daily'
+                }),
+                'scan_and_identify': settings.get('jobs', {}).get('scan_and_identify', {
+                    'enabled': False,
+                    'schedule': 'daily'
+                }),
+                'generate_metadata': settings.get('jobs', {}).get('generate_metadata', {
+                    'enabled': False,
+                    'schedule': 'daily'
+                })
             },
             'general': settings.get('general', {
                 'dry_run': True

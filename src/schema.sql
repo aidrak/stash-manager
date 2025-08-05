@@ -82,3 +82,30 @@ CREATE TRIGGER IF NOT EXISTS update_filter_rules_timestamp
 BEGIN
     UPDATE filter_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
+-- Add to existing schema.sql
+CREATE TABLE IF NOT EXISTS rule_sync_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sync_enabled BOOLEAN DEFAULT 0,
+    sync_direction TEXT CHECK(sync_direction IN ('add_to_clean', 'clean_to_add', 'bidirectional')) DEFAULT 'add_to_clean',
+    field_mappings TEXT, -- JSON mapping between StashDB and Local Stash fields
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default field mappings
+INSERT OR IGNORE INTO rule_sync_settings (sync_enabled, sync_direction, field_mappings) VALUES (
+    0, 
+    'add_to_clean',
+    '{
+        "performers.performer.name": "performers.name",
+        "performers.performer.ethnicity": "performers.ethnicity", 
+        "performers.performer.gender": "performers.gender",
+        "performers.performer.measurements.cup_size": "performers.cup_size",
+        "performers.performer.measurements.waist": "performers.waist",
+        "performers.performer.measurements.hip": "performers.hip",
+        "studio.name": "studio.name",
+        "title": "title",
+        "date": "date",
+        "tags": "tags"
+    }'
+);

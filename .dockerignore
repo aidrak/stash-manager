@@ -1,1 +1,32 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+node_modules
 .env
+*.log
+.pytest_cache
+__pycache__
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -77,6 +77,13 @@
                             <i class="fas fa-cog"></i> Settings
                         </a>
                     </li>
+                    <!-- Add this after the Settings nav item -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'sync_settings' %}active{% endif %}" 
+                           href="{{ url_for('sync_settings') }}">
+                            <i class="fas fa-sync"></i> Rule Sync
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link {% if active_page == 'one_time_search' %}active{% endif %}"
                            href="{{ url_for('one_time_search.one_time_search_page') }}">

@@ -10,6 +10,40 @@ import json  # NEW: Added for one-time search
 from datetime import timedelta  # NEW: Added for one-time search
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+import signal
+import atexit
+from threading import Event
+
+# Add this near the top of app.py, after imports but before creating the app
+shutdown_event = Event()
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    logging.info(f"Received signal {signum}, initiating graceful shutdown...")
+    shutdown_event.set()
+    
+    # Stop the scheduler
+    try:
+        scheduler.clear()
+        logging.info("Scheduler cleared")
+    except Exception as e:
+        logging.error(f"Error clearing scheduler: {e}")
+    
+    # You could also stop any other background threads here
+    logging.info("Graceful shutdown complete")
+
+def cleanup_on_exit():
+    """Cleanup function called on normal exit"""
+    logging.info("Application exiting, performing cleanup...")
+    try:
+        scheduler.clear()
+    except:
+        pass
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)  # Docker stop sends SIGTERM
+signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C sends SIGINT
+atexit.register(cleanup_on_exit)
 
 # Add the src directory to Python path for absolute imports FIRST
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -25,6 +59,7 @@ from src.database_manager import DatabaseManager
 from src.config import get_database, get_filter_rules, save_filter_rules, get_setting, set_setting
 from src.one_time_search import one_time_search_bp, is_one_time_search_running
 from src.utils import set_active_page
+from src.rule_sync_manager import RuleSyncManager
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -52,9 +87,16 @@ FILTER_CONTEXTS = {
 
 def run_scheduler():
     """Run the job scheduler in a separate thread"""
-    while True:
-        scheduler.run_pending()
-        time.sleep(1)
+    while not shutdown_event.is_set():
+        try:
+            scheduler.run_pending()
+            time.sleep(1)
+        except Exception as e:
+            if not shutdown_event.is_set():
+                logging.error(f"Error in scheduler: {e}")
+            break
+    
+    logging.info("Scheduler thread shutting down")
 
 import coloredlogs
 
@@ -95,8 +137,9 @@ def setup_jobs():
         # Setup jobs based on config
         jobs_config = config.get('jobs', {})
         
-        if jobs_config.get('add_new_scenes', {}).get('enabled'):
-            interval_str = jobs_config.get('add_new_scenes', {}).get('schedule', 'daily')
+        add_scenes_config = jobs_config.get('add_new_scenes', {})
+        if isinstance(add_scenes_config, dict) and add_scenes_config.get('enabled'):
+            interval_str = add_scenes_config.get('schedule', 'daily')
             try:
                 if 'hour' in interval_str:
                     hours = int(interval_str.split('-')[0])
@@ -109,8 +152,9 @@ def setup_jobs():
                 logging.error(f"Invalid interval format for add_new_scenes: {interval_str}. Error: {e}")
 
 
-        if jobs_config.get('clean_existing_scenes', {}).get('enabled'):
-            interval_str = jobs_config.get('clean_existing_scenes', {}).get('schedule', 'daily')
+        clean_scenes_config = jobs_config.get('clean_existing_scenes', {})
+        if isinstance(clean_scenes_config, dict) and clean_scenes_config.get('enabled'):
+            interval_str = clean_scenes_config.get('schedule', 'daily')
             try:
                 if 'hour' in interval_str:
                     hours = int(interval_str.split('-')[0])
@@ -122,8 +166,9 @@ def setup_jobs():
             except (ValueError, IndexError) as e:
                 logging.error(f"Invalid interval format for clean_existing_scenes: {interval_str}. Error: {e}")
 
-        if jobs_config.get('scan_and_identify', {}).get('enabled'):
-            interval_str = jobs_config.get('scan_and_identify', {}).get('schedule', 'daily')
+        scan_identify_config = jobs_config.get('scan_and_identify', {})
+        if isinstance(scan_identify_config, dict) and scan_identify_config.get('enabled'):
+            interval_str = scan_identify_config.get('schedule', 'daily')
             try:
                 if 'hour' in interval_str:
                     hours = int(interval_str.split('-')[0])
@@ -135,8 +180,9 @@ def setup_jobs():
             except (ValueError, IndexError) as e:
                 logging.error(f"Invalid interval format for scan_and_identify: {interval_str}. Error: {e}")
 
-        if jobs_config.get('generate_metadata', {}).get('enabled'):
-            interval_str = jobs_config.get('generate_metadata', {}).get('schedule', 'daily')
+        generate_metadata_config = jobs_config.get('generate_metadata', {})
+        if isinstance(generate_metadata_config, dict) and generate_metadata_config.get('enabled'):
+            interval_str = generate_metadata_config.get('schedule', 'daily')
             try:
                 if 'hour' in interval_str:
                     hours = int(interval_str.split('-')[0])
@@ -405,9 +451,9 @@ def reorder_add_rules():
 def reorder_clean_rules():
     return handle_reorder_rules('clean_scenes')
 
-# Replace the rule handler functions in app.py with these:
-
 def handle_add_rule(context, redirect_endpoint):
+    sync_manager = RuleSyncManager()
+    
     try:
         rules = get_rules(context)
         print(f"Current {context} rules count: {len(rules)}")
@@ -432,7 +478,14 @@ def handle_add_rule(context, redirect_endpoint):
         print(f"Total {context} rules after append: {len(rules)}")
         
         save_rules(rules, context)
+        
+        # Sync if enabled
+        sync_manager.sync_rules(context, rules)
+        
         flash('Rule added successfully!', 'success')
+        if sync_manager.sync_enabled:
+            target_context = 'clean_scenes' if context == 'add_scenes' else 'add_scenes'
+            flash(f'Rules synced to {target_context}!', 'info')
         
     except Exception as e:
         print(f"Error in add_rule for {context}: {e}")
@@ -443,6 +496,8 @@ def handle_add_rule(context, redirect_endpoint):
     return redirect(url_for(redirect_endpoint))
 
 def handle_edit_rule(context, redirect_endpoint, rule_index):
+    sync_manager = RuleSyncManager()
+    
     rules = get_rules(context)
     
     # Get the single condition and action from the form
@@ -462,14 +517,32 @@ def handle_edit_rule(context, redirect_endpoint, rule_index):
     
     rules[rule_index] = updated_rule
     save_rules(rules, context)
+    
+    # Sync if enabled
+    sync_manager.sync_rules(context, rules)
+    
     flash('Rule updated successfully!', 'success')
+    if sync_manager.sync_enabled:
+        target_context = 'clean_scenes' if context == 'add_scenes' else 'add_scenes'
+        flash(f'Rules synced to {target_context}!', 'info')
+        
     return redirect(url_for(redirect_endpoint))
 
 def handle_delete_rule(context, redirect_endpoint, rule_index):
+    sync_manager = RuleSyncManager()
+    
     rules = get_rules(context)
     del rules[rule_index]
     save_rules(rules, context)
+    
+    # Sync if enabled
+    sync_manager.sync_rules(context, rules)
+    
     flash('Rule deleted successfully!', 'success')
+    if sync_manager.sync_enabled:
+        target_context = 'clean_scenes' if context == 'add_scenes' else 'add_scenes'
+        flash(f'Rules synced to {target_context}!', 'info')
+        
     return redirect(url_for(redirect_endpoint))
 
 def handle_reorder_rules(context):
@@ -585,6 +658,31 @@ def run_job(job_name):
         traceback.print_exc()
         return jsonify({'success': False, 'message': f"Error starting job: {str(e)}"}), 500
 
+@app.route('/sync-settings', methods=['GET'])
+@set_active_page('sync_settings')
+def sync_settings():
+    """Display the sync settings page"""
+    sync_manager = RuleSyncManager()
+    settings = sync_manager.get_sync_settings()
+    
+    return 'sync_settings.html', {
+        'settings': settings
+    }
+
+@app.route('/api/sync-settings', methods=['POST'])
+def update_sync_settings_api():
+    """AJAX endpoint for updating sync settings - no decorator needed"""
+    sync_manager = RuleSyncManager()
+    
+    enabled = 'sync_enabled' in request.form
+    direction = request.form.get('sync_direction', 'add_to_clean')
+    
+    try:
+        sync_manager.update_sync_settings(enabled, direction)
+        return jsonify({'success': True}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
 @app.route('/settings', methods=['GET', 'POST'])
 @set_active_page('settings')
 def settings():
@@ -629,6 +727,69 @@ def settings():
     settings = get_config(strict=False)
     return 'settings.html', {'settings': settings}
 
+# Add new route to check sync status
+@app.route('/check-sync-status')
+def check_sync_status():
+   """Check if rules are currently in sync."""
+   try:
+       sync_manager = RuleSyncManager()
+       in_sync, reason = sync_manager.are_rules_in_sync()
+       
+       return jsonify({
+           'in_sync': in_sync,
+           'reason': reason
+       })
+       
+   except Exception as e:
+       logging.error(f"Error checking sync status: {e}")
+       return jsonify({
+           'in_sync': False,
+           'reason': f'Error checking sync status: {str(e)}'
+       })
+
+# Update the existing manual_sync route
+@app.route('/manual-sync', methods=['POST'])
+def manual_sync():
+   """Manually trigger rule synchronization."""
+   try:
+       data = request.get_json()
+       direction = data.get('direction')
+       
+       if direction not in ['add_to_clean', 'clean_to_add']:
+           return jsonify({'success': False, 'message': 'Invalid sync direction'})
+       
+       sync_manager = RuleSyncManager()
+       
+       if direction == 'add_to_clean':
+           source_context = 'add_scenes'
+           rules = get_rules('add_scenes')
+       else:
+           source_context = 'clean_scenes'
+           rules = get_rules('clean_scenes')
+       
+       # Temporarily enable sync for this operation
+       original_enabled = sync_manager.sync_enabled
+       original_direction = sync_manager.sync_direction
+       
+       sync_manager.sync_enabled = True
+       sync_manager.sync_direction = direction
+       
+       # Perform sync
+       sync_manager.sync_rules(source_context, rules)
+       
+       # Restore original settings
+       sync_manager.sync_enabled = original_enabled
+       sync_manager.sync_direction = original_direction
+       
+       target_context = 'clean_scenes' if source_context == 'add_scenes' else 'add_scenes'
+       message = f'Successfully synced {len(rules)} rules from {source_context} to {target_context}'
+       
+       return jsonify({'success': True, 'message': message})
+       
+   except Exception as e:
+       logging.error(f"Error in manual sync: {e}")
+       return jsonify({'success': False, 'message': str(e)})
+
 # Setup jobs on startup
 setup_jobs()
 
@@ -650,4 +811,5 @@ if __name__ == '__main__':
     log_level = config.get('logs', {}).get('level', 'INFO').upper()
     is_debug = log_level == 'DEBUG'
 
-    app.run(host='0.0.0.0', port=5001, debug=is_debug)
+    port = int(os.environ.get('FLASK_RUN_PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=is_debug)
