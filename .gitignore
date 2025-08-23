@@ -34,3 +34,15 @@ yarn-error.log
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Python virtual environment
+.venv/
+venv/
+
+
+# Dev Tools
+.ruff_cache/
+.mypy_cache/
+.devcontainer/
+pyproject.toml
+requirements-dev.txt
