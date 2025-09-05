@@ -35,7 +35,7 @@ class RuleSyncManager:
                 CREATE TABLE IF NOT EXISTS rule_sync_settings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     sync_enabled BOOLEAN DEFAULT 0,
-                    sync_direction TEXT CHECK(sync_direction IN ('add_to_clean', 'clean_to_add', 'bidirectional')) DEFAULT 'add_to_clean',  # noqa: E501
+                    sync_direction TEXT CHECK(sync_direction IN ('add_to_clean', 'clean_to_add', 'bidirectional')) DEFAULT 'add_to_clean',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -98,7 +98,7 @@ class RuleSyncManager:
         if len(add_rules) != len(clean_rules):
             return (
                 False,
-                f"Rule count mismatch: {len(add_rules)} add rules vs {len(clean_rules)} clean rules",  # noqa: E501
+                f"Rule count mismatch: {len(add_rules)} add rules vs {len(clean_rules)} clean rules",
             )
 
         # Convert add rules to clean format and compare

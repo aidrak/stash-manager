@@ -409,6 +409,13 @@ def get_last_run_time(job_name):
         return None
 
 
+def get_next_run_time(job_name):
+    """Get the next run time for a job from the scheduler"""
+    for job in scheduler.jobs:
+        if getattr(job, "tag", "unknown") == job_name:
+            return job.next_run.strftime("%Y-%m-%d %H:%M:%S") if job.next_run else "Not scheduled"
+    return "Not scheduled"
+
 # Job name mapping for user-friendly messages
 JOB_NAMES = {
     "add_new_scenes": "Add New Scenes",
@@ -620,42 +627,25 @@ def tasks():
     config = get_config(strict=False)
     jobs_config = config.get("jobs", {})
 
-    next_run_times = {}
     last_run_times = {}
-
-    # Get schedule information using tags
-    for job in scheduler.jobs:
-        job_name = getattr(job, "tag", "unknown")
-
-        if job.next_run:
-            next_run_times[job_name] = job.next_run.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            next_run_times[job_name] = "Not scheduled"
-
-        # Try to get last run time from config file first, then fallback to memory
-        config_last_run = get_last_run_time(job_name)
-        if config_last_run:
-            last_run_times[job_name] = config_last_run.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            last_run_times[job_name] = "Never run"
-
-    # Ensure we have entries for all possible jobs
+    next_run_times = {}
     job_names = [
         "add_new_scenes",
         "clean_existing_scenes",
         "scan_and_identify",
         "generate_metadata",
     ]
+
     for job_name in job_names:
-        if job_name not in next_run_times:
-            next_run_times[job_name] = "Not scheduled"
-        if job_name not in last_run_times:
-            # Check config file for last run time even if job isn't scheduled
-            config_last_run = get_last_run_time(job_name)
-            if config_last_run:
-                last_run_times[job_name] = config_last_run.strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                last_run_times[job_name] = "Never run"
+        # Get next run time
+        next_run_times[job_name] = get_next_run_time(job_name)
+
+        # Get last run time from config file
+        config_last_run = get_last_run_time(job_name)
+        if config_last_run:
+            last_run_times[job_name] = config_last_run.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            last_run_times[job_name] = "Never run"
 
     return "tasks.html", {
         "config": jobs_config,
