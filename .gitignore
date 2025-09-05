@@ -34,3 +34,6 @@ yarn-error.log
 __pycache__/
 *.pyc
 .pytest_cache/
+# Python virtual environment
+.venv/
+venv/
