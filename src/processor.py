@@ -18,6 +18,7 @@ def add_new_scenes_to_whisparr(
     end_date=None,
     progress_callback=None,
     dry_run=False,
+    sort_direction: str = "ASC",  # Add sort_direction parameter, default to ASC
 ):
     """
     Finds new scenes in StashDB, filters them using AddScenesFilter, and adds them to Whisparr.
@@ -42,7 +43,9 @@ def add_new_scenes_to_whisparr(
         return
     stashdb_api = StashAPI(url="https://stashdb.org", api_key=stashdb_api_key)
 
-    new_scenes = stashdb_api.get_all_scenes(limit=500, start_date=start_date, end_date=end_date)
+    new_scenes = stashdb_api.get_all_scenes(
+        limit=500, start_date=start_date, end_date=end_date, direction=sort_direction
+    )
 
     # Add this debug logging:
     logger.info("Sample scene dates from StashDB:")
@@ -63,9 +66,15 @@ def add_new_scenes_to_whisparr(
 
     filtered_scenes = []
     for scene in new_scenes:
-        scene_date = datetime.strptime(scene.get("date"), "%Y-%m-%d")
-        if start_date <= scene_date <= end_date:
-            filtered_scenes.append(scene)
+        scene_date_str = scene.get("date")
+        if scene_date_str:
+            scene_date = datetime.strptime(scene_date_str, "%Y-%m-%d")
+            if start_date <= scene_date <= end_date:
+                filtered_scenes.append(scene)
+        else:
+            logger.debug(
+                f"Scene {scene.get('title', 'Untitled')} has no date, skipping date filter."
+            )
     new_scenes = filtered_scenes
 
     logger.info(f"📊 === RETRIEVED {len(new_scenes)} SCENES FROM STASHDB ===")
@@ -138,7 +147,7 @@ def add_new_scenes_to_whisparr(
 
 def clean_existing_scenes_from_stash(config: dict, stash_api: StashAPI):
     """
-    Scans all existing scenes in local Stash and deletes ones that don't match the CleanScenesFilter.
+    Scans all existing scenes in local Stash and deletes ones that don't match the CleanScenesFilter.  # noqa: E501
     """
     logger.info("🧹 === STARTING CLEAN EXISTING SCENES JOB ===")
 
@@ -171,6 +180,10 @@ def clean_existing_scenes_from_stash(config: dict, stash_api: StashAPI):
 
         # Use CleanScenesFilter's should_keep_scene method
         should_keep, reason = filter_engine.should_keep_scene(scene)
+
+        if not scene_id:
+            logger.warning(f"Scene {scene_title} has no ID, cannot be deleted. Skipping.")
+            continue
 
         if should_keep:
             logger.debug(f"✅ KEEP: {scene_title} - {reason}")

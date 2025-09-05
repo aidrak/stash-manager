@@ -3,16 +3,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: stash-manager-test
+    container_name: stash-manager
     restart: unless-stopped
     ports:
-      - "5002:5001"
+      - "5001:5001"
     environment:
       - TZ=America/Chicago
       - FLASK_RUN_PORT=5001
     env_file: .env
     volumes:
-      - /mnt/user/appdata/stash-manager-test/config:/config
+      - /mnt/user/appdata/stash-manager/config:/config
       - ${MEDIA_PATH:-./media}:/media
     networks:
       - media_net
@@ -20,3 +20,4 @@ services:
 networks:
   media_net:
     external: true
+

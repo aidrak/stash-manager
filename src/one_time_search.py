@@ -3,6 +3,7 @@
 import logging
 import threading
 from datetime import datetime, timedelta
+from typing import Dict  # Import Dict
 
 from flask import Blueprint, jsonify, request
 
@@ -14,17 +15,15 @@ from .utils import set_active_page
 logger = logging.getLogger("stash_manager.one_time_search")
 
 # Create the blueprint
-one_time_search_bp = Blueprint(
-    "one_time_search", __name__, url_prefix="/one-time-search"
-)
+one_time_search_bp = Blueprint("one_time_search", __name__, url_prefix="/one-time-search")
 
 # ============================================================================
 # GLOBAL JOB TRACKING (Module-level)
 # ============================================================================
 
 _job_lock = threading.Lock()
-_active_jobs = {}  # Store job details
-_job_progress = {}  # Store progress information
+_active_jobs: Dict = {}  # Store job details
+_job_progress: Dict = {}  # Store progress information
 
 # ============================================================================
 # JOB MANAGEMENT FUNCTIONS
@@ -147,9 +146,7 @@ def one_time_search_job(start_date, end_date, search_config=None):
             update_job_progress(
                 job_name,
                 status="searching",
-                message=(
-                    f"DRY RUN: Searching scenes from {start_date} to {end_date}..."
-                ),
+                message=(f"DRY RUN: Searching scenes from {start_date} to {end_date}..."),
                 progress=20,
                 dry_run=True,
             )
@@ -160,9 +157,7 @@ def one_time_search_job(start_date, end_date, search_config=None):
             update_job_progress(
                 job_name,
                 status="searching",
-                message=(
-                    f"Searching scenes from {start_date} to {end_date}..."
-                ),
+                message=(f"Searching scenes from {start_date} to {end_date}..."),
                 progress=20,
                 dry_run=False,
             )
@@ -185,7 +180,8 @@ def one_time_search_job(start_date, end_date, search_config=None):
             start_date=start_date,
             end_date=end_date,
             progress_callback=progress_callback,
-            dry_run=dry_run,  # Pass dry_run flag here
+            dry_run=dry_run,
+            sort_direction="ASC",  # One-time search should start from oldest
         )
 
         # Log final status with dry run context
@@ -240,6 +236,7 @@ def add_new_scenes_to_whisparr_with_progress(
     end_date=None,
     progress_callback=None,
     dry_run=False,
+    sort_direction: str = "ASC",  # Add sort_direction here
 ):
     """
     Enhanced version of add_new_scenes_to_whisparr with progress tracking.
@@ -269,6 +266,7 @@ def add_new_scenes_to_whisparr_with_progress(
             end_date,
             progress_callback=progress_callback,
             dry_run=dry_run,
+            sort_direction=sort_direction,  # Pass the sort_direction
         )
 
         update_progress(90, 100, "Finalizing results...")
@@ -352,23 +350,17 @@ def start_one_time_search():
 
         # Validation
         if not start_date or not end_date:
-            return jsonify(
-                {"success": False, "message": "Both start and end dates are required"}
-            )
+            return jsonify({"success": False, "message": "Both start and end dates are required"})
 
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
             if start_dt > end_dt:
-                return jsonify(
-                {"success": False, "message": "Start date must be before end date"}
-            )
+                return jsonify({"success": False, "message": "Start date must be before end date"})
 
             if end_dt > datetime.now():
-                return jsonify(
-                {"success": False, "message": "End date cannot be in the future"}
-            )
+                return jsonify({"success": False, "message": "End date cannot be in the future"})
 
         except ValueError:
             return jsonify({"success": False, "message": "Invalid date format"})

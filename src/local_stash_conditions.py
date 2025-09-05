@@ -5,8 +5,7 @@ LOCAL_STASH_CONDITIONS = {
         "operators": ["include", "exclude"],
         "type": "text",
         "help_text": (
-            "Check if a scene has specific tags. Use a comma-separated list for multiple "
-            "values."
+            "Check if a scene has specific tags. Use a comma-separated list for multiple values."
         ),
     },
     "performers.name": {

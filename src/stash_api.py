@@ -4,7 +4,7 @@ Simplified Stash API client for Stash Manager
 
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import requests
 
@@ -34,7 +34,7 @@ class StashAPI:
         self.headers = {"Content-Type": "application/json", "ApiKey": api_key}
         logger.info(f"Initialized Stash API client for {url}")
 
-    def execute_query(self, query: str, variables: Dict = None) -> Dict:
+    def execute_query(self, query: str, variables: Optional[Dict] = None) -> Dict:
         """Execute a GraphQL query against the Stash API"""
         if variables is None:
             variables = {}
@@ -320,7 +320,11 @@ class StashAPI:
             raise
 
     def get_all_scenes(
-        self, limit: int = None, start_date: str = None, end_date: str = None
+        self,
+        limit: Optional[int] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        direction: str = "ASC",
     ) -> List[Dict]:
         """Get all scenes from Stash or StashDB
 
@@ -328,6 +332,7 @@ class StashAPI:
             limit: Optional limit for the number of scenes to return
             start_date: Optional start date for the search (YYYY-MM-DD)
             end_date: Optional end date for the search (YYYY-MM-DD)
+            direction: Optional sort direction for date-based queries ("ASC" or "DESC")
 
         Returns:
             List of scenes
@@ -336,12 +341,16 @@ class StashAPI:
         is_stashdb = "stashdb.org" in self.url.lower()
 
         if is_stashdb:
-            return self._get_stashdb_scenes_paginated(limit, start_date, end_date)
+            return self._get_stashdb_scenes_paginated(limit, start_date, end_date, direction)
         else:
             return self._get_local_stash_scenes(limit, start_date, end_date)
 
     def _get_stashdb_scenes_paginated(
-        self, limit: int = None, start_date: str = None, end_date: str = None
+        self,
+        limit: Optional[int] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        direction: str = "ASC",
     ) -> List[Dict]:
         """Get scenes from StashDB with pagination support"""
         # StashDB query structure - date filtering with range
@@ -381,7 +390,7 @@ class StashAPI:
         }
         """
 
-        all_scenes = []
+        all_scenes: List[Dict] = []
         page = 1
         per_page = 100  # StashDB seems to have lower limits, start conservative
         max_scenes = limit if limit else 10000  # Default reasonable limit
@@ -392,14 +401,14 @@ class StashAPI:
                     "page": page,
                     "per_page": per_page,
                     "sort": "DATE",
-                    "direction": "ASC",  # Always use ascending for date-filtered queries
+                    "direction": direction,  # Use the provided direction parameter
                 }
             }
 
             # Handle date filtering for StashDB
             if start_date and end_date:
                 logger.info(
-                    f"Setting date range filter: {start_date} to {end_date} (inclusive) - Page {page}"
+                    f"Setting date range filter: {start_date} to {end_date} (inclusive) - Page {page}"  # noqa: E501
                 )
                 variables["input"]["date"] = {
                     "value": start_date,
@@ -432,7 +441,7 @@ class StashAPI:
                         total_count = query_result.get("count", 0)
 
                         logger.info(
-                            f"Page {page}: Retrieved {len(page_scenes)} scenes (Total available: {total_count})"
+                            f"Page {page}: Retrieved {len(page_scenes)} scenes (Total available: {total_count})"  # noqa: E501
                         )
 
                         if not page_scenes:
@@ -505,7 +514,7 @@ class StashAPI:
                         logger.debug("Scene has no date, excluding from date range filter")
 
                 logger.info(
-                    f"Filtered to {len(filtered_scenes)} scenes within date range {start_date} to {end_date}"
+                    f"Filtered to {len(filtered_scenes)} scenes within date range {start_date} to {end_date}"  # noqa: E501
                 )
                 return filtered_scenes
 
@@ -516,35 +525,38 @@ class StashAPI:
         return all_scenes
 
     def _get_local_stash_scenes(
-        self, limit: int = None, start_date: str = None, end_date: str = None
+        self,
+        limit: Optional[int] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> List[Dict]:
         """Get scenes from local Stash instance"""
         # Local Stash query structure
         query = """
-        query FindScenes($filter: FindFilterType) { 
-            findScenes(filter: $filter) { 
-                count 
-                scenes { 
-                    id 
-                    title 
+        query FindScenes($filter: FindFilterType) {
+            findScenes(filter: $filter) {
+                count
+                scenes {
+                    id
+                    title
                     organized
-                    studio { 
-                        id 
-                        name 
-                    } 
-                    performers { 
-                        id 
-                        name 
+                    studio {
+                        id
+                        name
+                    }
+                    performers {
+                        id
+                        name
                         gender
                         ethnicity
                         measurements
-                    } 
-                    tags { 
-                        id 
-                        name 
-                    } 
-                } 
-            } 
+                    }
+                    tags {
+                        id
+                        name
+                    }
+                }
+            }
         }
         """
 
@@ -598,13 +610,13 @@ class StashAPI:
             List of performers
         """
         query = """
-        query AllPerformers($filter: FindFilterType) { 
-            allPerformers(filter: $filter) { 
-                id 
-                name 
-                gender 
-                ethnicity 
-                measurements 
+        query AllPerformers($filter: FindFilterType) {
+            allPerformers(filter: $filter) {
+                id
+                name
+                gender
+                ethnicity
+                measurements
             }
         }
         """

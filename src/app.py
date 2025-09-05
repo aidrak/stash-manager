@@ -158,11 +158,11 @@ def setup_jobs():
             interval_str = add_scenes_config.get("schedule", "daily")
             try:
                 if "hour" in interval_str:
-                    hours = int(interval_str.split("-")[0])
+                    hours = int(interval_str.split("-"))
                     job = scheduler.every(hours).hours.do(add_new_scenes_job)
                 elif interval_str == "daily":
                     job = scheduler.every().day.at("01:00").do(add_new_scenes_job)
-                job.tag = "add_new_scenes"
+                job.tag("add_new_scenes")
                 logging.info(f"Scheduled 'Add New Scenes' job with interval: {interval_str}")
             except (ValueError, IndexError) as e:
                 logging.error(
@@ -174,11 +174,11 @@ def setup_jobs():
             interval_str = clean_scenes_config.get("schedule", "daily")
             try:
                 if "hour" in interval_str:
-                    hours = int(interval_str.split("-")[0])
+                    hours = int(interval_str.split("-"))
                     job = scheduler.every(hours).hours.do(clean_existing_scenes_job)
                 elif interval_str == "daily":
                     job = scheduler.every().day.at("01:00").do(clean_existing_scenes_job)
-                job.tag = "clean_existing_scenes"
+                job.tag("clean_existing_scenes")
                 logging.info(f"Scheduled 'Clean Existing Scenes' job with interval: {interval_str}")
             except (ValueError, IndexError) as e:
                 logging.error(
@@ -190,11 +190,11 @@ def setup_jobs():
             interval_str = scan_identify_config.get("schedule", "daily")
             try:
                 if "hour" in interval_str:
-                    hours = int(interval_str.split("-")[0])
+                    hours = int(interval_str.split("-"))
                     job = scheduler.every(hours).hours.do(scan_and_identify_job)
                 elif interval_str == "daily":
                     job = scheduler.every().day.at("02:00").do(scan_and_identify_job)
-                job.tag = "scan_and_identify"
+                job.tag("scan_and_identify")
                 logging.info(f"Scheduled 'Scan & Identify' job with interval: {interval_str}")
             except (ValueError, IndexError) as e:
                 logging.error(
@@ -206,11 +206,11 @@ def setup_jobs():
             interval_str = generate_metadata_config.get("schedule", "daily")
             try:
                 if "hour" in interval_str:
-                    hours = int(interval_str.split("-")[0])
+                    hours = int(interval_str.split("-"))
                     job = scheduler.every(hours).hours.do(generate_metadata_job)
                 elif interval_str == "daily":
                     job = scheduler.every().day.at("03:00").do(generate_metadata_job)
-                job.tag = "generate_metadata"
+                job.tag("generate_metadata")
                 logging.info(f"Scheduled 'Generate Metadata' job with interval: {interval_str}")
             except (ValueError, IndexError) as e:
                 logging.error(
@@ -248,7 +248,13 @@ def add_new_scenes_job(start_date: Optional[Any] = None, end_date: Optional[Any]
         stash_api_key = os.environ.get("STASH_API_KEY")
         if stash_url and stash_api_key:
             stash_api = StashAPI(url=stash_url, api_key=stash_api_key)
-            add_new_scenes_to_whisparr(config, stash_api, start_date=start_date, end_date=end_date)
+            add_new_scenes_to_whisparr(
+                config,
+                stash_api,
+                start_date=start_date,
+                end_date=end_date,
+                sort_direction="DESC",  # Scheduled jobs should start from latest
+            )
         else:
             logging.error("Missing Stash configuration")
 
@@ -402,13 +408,6 @@ def get_last_run_time(job_name):
         logging.error(f"Error getting last run time for {job_name}: {e}")
         return None
 
-
-def get_next_run_time(job_name):
-    """Get the next run time for a job from the scheduler"""
-    for job in scheduler.jobs:
-        if getattr(job, "tag", "unknown") == job_name:
-            return job.next_run.strftime("%Y-%m-%d %H:%M:%S") if job.next_run else "Not scheduled"
-    return "Not scheduled"
 
 # Job name mapping for user-friendly messages
 JOB_NAMES = {
@@ -621,25 +620,42 @@ def tasks():
     config = get_config(strict=False)
     jobs_config = config.get("jobs", {})
 
-    last_run_times = {}
     next_run_times = {}
+    last_run_times = {}
+
+    # Get schedule information using tags
+    for job in scheduler.jobs:
+        job_name = getattr(job, "tag", "unknown")
+
+        if job.next_run:
+            next_run_times[job_name] = job.next_run.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            next_run_times[job_name] = "Not scheduled"
+
+        # Try to get last run time from config file first, then fallback to memory
+        config_last_run = get_last_run_time(job_name)
+        if config_last_run:
+            last_run_times[job_name] = config_last_run.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            last_run_times[job_name] = "Never run"
+
+    # Ensure we have entries for all possible jobs
     job_names = [
         "add_new_scenes",
         "clean_existing_scenes",
         "scan_and_identify",
         "generate_metadata",
     ]
-
     for job_name in job_names:
-        # Get next run time
-        next_run_times[job_name] = get_next_run_time(job_name)
-
-        # Get last run time from config file
-        config_last_run = get_last_run_time(job_name)
-        if config_last_run:
-            last_run_times[job_name] = config_last_run.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            last_run_times[job_name] = "Never run"
+        if job_name not in next_run_times:
+            next_run_times[job_name] = "Not scheduled"
+        if job_name not in last_run_times:
+            # Check config file for last run time even if job isn't scheduled
+            config_last_run = get_last_run_time(job_name)
+            if config_last_run:
+                last_run_times[job_name] = config_last_run.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                last_run_times[job_name] = "Never run"
 
     return "tasks.html", {
         "config": jobs_config,
@@ -667,9 +683,9 @@ def run_job(job_name):
                 {
                     "success": False,
                     "message": (
-                    "Missing Stash credentials. Please set STASH_URL and "
-                    "STASH_API_KEY environment variables."
-                ),
+                        "Missing Stash credentials. Please set STASH_URL and "
+                        "STASH_API_KEY environment variables."
+                    ),
                 }
             ), 400
 

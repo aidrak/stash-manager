@@ -4,7 +4,7 @@ STASHDB_CONDITIONS = {
         "label": "Tags",
         "operators": ["include", "exclude"],
         "type": "text",
-        "help_text": "Check if a scene has specific tags. Use a comma-separated list for multiple values.",
+        "help_text": "Check if a scene has specific tags. Use a comma-separated list for multiple values.",  # noqa: E501
     },
     "performers.performer.name": {
         "label": "Performer Name",
@@ -28,19 +28,19 @@ STASHDB_CONDITIONS = {
         "label": "Performer Ethnicity",
         "operators": ["include", "exclude"],
         "type": "text",
-        "help_text": "Check if at least one performer matches the ethnicity. Use comma-separated list for multiple values.",
+        "help_text": "Check if at least one performer matches the ethnicity. Use comma-separated list for multiple values.",  # noqa: E501
     },
     "performers.performer.gender": {
         "label": "Performer Gender",
         "operators": ["include", "exclude"],
         "type": "text",
-        "help_text": "Check if at least one performer matches the gender (MALE, FEMALE, TRANSGENDER_MALE, TRANSGENDER_FEMALE, INTERSEX, NON_BINARY).",
+        "help_text": "Check if at least one performer matches the gender (MALE, FEMALE, TRANSGENDER_MALE, TRANSGENDER_FEMALE, INTERSEX, NON_BINARY).",  # noqa: E501
     },
     "performers.performer.measurements.cup_size": {
         "label": "Cup Size",
         "operators": ["include", "exclude"],
         "type": "text",
-        "help_text": "Check if at least one performer matches the cup size. Use single letters (D matches D, DD, DDD, etc.)",
+        "help_text": "Check if at least one performer matches the cup size. Use single letters (D matches D, DD, DDD, etc.)",  # noqa: E501
     },
     "performers.performer.measurements.waist": {
         "label": "Waist Size",

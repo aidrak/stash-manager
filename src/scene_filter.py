@@ -45,10 +45,10 @@ class SceneFilter:
 
         logger.info(f"Initialized scene filter with {len(self.ethnicity_values)} ethnicity values")
         logger.info(
-            f"Cup size exceptions: {len(self.exceptions_to_large)} large, {len(self.force_to_small)} small"
+            f"Cup size exceptions: {len(self.exceptions_to_large)} large, {len(self.force_to_small)} small"  # noqa: E501
         )
         logger.info(
-            f"Keyword filter enabled: {self.keyword_enabled} with {len(self.keywords)} keywords: {self.keywords}"
+            f"Keyword filter enabled: {self.keyword_enabled} with {len(self.keywords)} keywords: {self.keywords}"  # noqa: E501
         )
 
     def should_remove_scene(self, scene_data: Dict) -> Tuple[bool, str]:

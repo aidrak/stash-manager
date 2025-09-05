@@ -9,6 +9,7 @@ logger = logging.getLogger("stash_manager.rule_sync")
 class RuleSyncManager:
     """Manages synchronization of filter rules between add_scenes and clean_scenes contexts."""
 
+    # Hardcoded field mappings - no customization needed
     FIELD_MAPPINGS = {
         "performers.performer.name": "performers.name",
         "performers.performer.ethnicity": "performers.ethnicity",
@@ -34,7 +35,7 @@ class RuleSyncManager:
                 CREATE TABLE IF NOT EXISTS rule_sync_settings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     sync_enabled BOOLEAN DEFAULT 0,
-                    sync_direction TEXT CHECK(sync_direction IN ('add_to_clean', 'clean_to_add', 'bidirectional')) DEFAULT 'add_to_clean',
+                    sync_direction TEXT CHECK(sync_direction IN ('add_to_clean', 'clean_to_add', 'bidirectional')) DEFAULT 'add_to_clean',  # noqa: E501
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -46,8 +47,8 @@ class RuleSyncManager:
             row = cursor.fetchone()
 
             if row:
-                self.sync_enabled = bool(row[0])
-                self.sync_direction = row[1]
+                self.sync_enabled = bool(row)
+                self.sync_direction = row
             else:
                 # Default settings - create them
                 self.sync_enabled = False
@@ -55,8 +56,8 @@ class RuleSyncManager:
 
                 # Insert default settings
                 conn.execute(
-                    """INSERT INTO rule_sync_settings 
-                       (sync_enabled, sync_direction) 
+                    """INSERT INTO rule_sync_settings
+                       (sync_enabled, sync_direction)
                        VALUES (?, ?)""",
                     (self.sync_enabled, self.sync_direction),
                 )
@@ -97,7 +98,7 @@ class RuleSyncManager:
         if len(add_rules) != len(clean_rules):
             return (
                 False,
-                f"Rule count mismatch: {len(add_rules)} add rules vs {len(clean_rules)} clean rules",
+                f"Rule count mismatch: {len(add_rules)} add rules vs {len(clean_rules)} clean rules",  # noqa: E501
             )
 
         # Convert add rules to clean format and compare
@@ -136,8 +137,8 @@ class RuleSyncManager:
         # Save to database
         with self.db.get_connection() as conn:
             conn.execute(
-                """INSERT OR REPLACE INTO rule_sync_settings 
-                   (id, sync_enabled, sync_direction, updated_at) 
+                """INSERT OR REPLACE INTO rule_sync_settings
+                   (id, sync_enabled, sync_direction, updated_at)
                    VALUES (1, ?, ?, CURRENT_TIMESTAMP)""",
                 (enabled, direction),
             )

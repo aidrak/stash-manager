@@ -64,7 +64,9 @@ class DatabaseManager:
             context TEXT NOT NULL CHECK(context IN ('add_scenes', 'clean_scenes')),
             name TEXT NOT NULL,
             field TEXT NOT NULL,
-            operator TEXT NOT NULL CHECK(operator IN ('include', 'exclude', 'is_larger_than', 'is_smaller_than')),
+            operator TEXT NOT NULL CHECK(operator IN (
+                'include', 'exclude', 'is_larger_than', 'is_smaller_than'
+            )),
             value TEXT,
             action TEXT NOT NULL CHECK(action IN ('accept', 'reject')),
             priority INTEGER NOT NULL,
@@ -94,14 +96,15 @@ class DatabaseManager:
             scene_id TEXT NOT NULL,
             scene_title TEXT,
             source TEXT NOT NULL CHECK(source IN ('stashdb', 'local_stash')),
-            action_taken TEXT NOT NULL CHECK(action_taken IN ('added', 'rejected', 'deleted', 'kept')),
+            action_taken TEXT NOT NULL CHECK(action_taken IN (
+                'added', 'rejected', 'deleted', 'kept'
+            )),
             rule_matched TEXT,
             processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             job_run_id INTEGER,
             FOREIGN KEY (job_run_id) REFERENCES job_runs(id),
             UNIQUE(scene_id, source)
         );
-        
         CREATE TABLE IF NOT EXISTS one_time_searches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             start_date TEXT NOT NULL,
@@ -142,7 +145,7 @@ class DatabaseManager:
         json_value = json.dumps(value) if not isinstance(value, str) else value
         with self.get_connection() as conn:
             conn.execute(
-                """INSERT OR REPLACE INTO settings (section, key, value, updated_at) 
+                """INSERT OR REPLACE INTO settings (section, key, value, updated_at)
                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)""",
                 (section, key, json_value),
             )
@@ -171,9 +174,9 @@ class DatabaseManager:
         """Get filter rules for a specific context, ordered by priority."""
         with self.get_connection() as conn:
             cursor = conn.execute(
-                """SELECT id, name, field, operator, value, action, priority, enabled 
-                   FROM filter_rules 
-                   WHERE context = ? AND enabled = 1 
+                """SELECT id, name, field, operator, value, action, priority, enabled
+                   FROM filter_rules
+                   WHERE context = ? AND enabled = 1
                    ORDER BY priority""",
                 (context,),
             )
@@ -199,7 +202,8 @@ class DatabaseManager:
 
             # Insert rule
             cursor = conn.execute(
-                """INSERT INTO filter_rules (context, name, field, operator, value, action, priority)
+                """INSERT INTO filter_rules 
+                   (context, name, field, operator, value, action, priority)
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (context, name, field, operator, value, action, priority),
             )
@@ -210,8 +214,9 @@ class DatabaseManager:
         """Update an existing filter rule."""
         with self.get_connection() as conn:
             conn.execute(
-                """UPDATE filter_rules 
-                   SET field = ?, operator = ?, value = ?, action = ?, updated_at = CURRENT_TIMESTAMP
+                """UPDATE filter_rules
+                   SET field = ?, operator = ?, value = ?, action = ?, 
+                       updated_at = CURRENT_TIMESTAMP
                    WHERE id = ?""",
                 (field, operator, value, action, rule_id),
             )
@@ -235,8 +240,8 @@ class DatabaseManager:
 
             # Reorder priorities
             conn.execute(
-                """UPDATE filter_rules 
-                   SET priority = priority - 1 
+                """UPDATE filter_rules
+                   SET priority = priority - 1
                    WHERE context = ? AND priority > ?""",
                 (context, deleted_priority),
             )
@@ -279,10 +284,12 @@ class DatabaseManager:
         """Complete a job run with results."""
         with self.get_connection() as conn:
             conn.execute(
-                """UPDATE job_runs 
+                """UPDATE job_runs
                    SET status = ?, end_time = CURRENT_TIMESTAMP,
-                       duration_seconds = (julianday(CURRENT_TIMESTAMP) - julianday(start_time)) * 86400,
-                       scenes_processed = ?, scenes_added = ?, scenes_deleted = ?, error_message = ?
+                       duration_seconds = (julianday(CURRENT_TIMESTAMP) - 
+                                         julianday(start_time)) * 86400,
+                       scenes_processed = ?, scenes_added = ?, scenes_deleted = ?, 
+                       error_message = ?
                    WHERE id = ?""",
                 (
                     status,
@@ -299,7 +306,7 @@ class DatabaseManager:
         """Get the most recent job run for a job."""
         with self.get_connection() as conn:
             cursor = conn.execute(
-                """SELECT * FROM job_runs 
+                """SELECT * FROM job_runs
                    WHERE job_name = ? AND status IN ('completed', 'failed')
                    ORDER BY start_time DESC LIMIT 1""",
                 (job_name,),
@@ -323,7 +330,7 @@ class DatabaseManager:
         """Record that a scene was processed."""
         with self.get_connection() as conn:
             conn.execute(
-                """INSERT OR REPLACE INTO processed_scenes 
+                """INSERT OR REPLACE INTO processed_scenes
                    (scene_id, scene_title, source, action_taken, rule_matched, job_run_id)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (scene_id, scene_title, source, action_taken, rule_matched, job_run_id),
@@ -349,7 +356,7 @@ class DatabaseManager:
         """Record a new one-time search"""
         with self.get_connection() as conn:
             cursor = conn.execute(
-                """INSERT INTO one_time_searches 
+                """INSERT INTO one_time_searches
                    (start_date, end_date, status, created_at)
                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)""",
                 (start_date, end_date, status),
@@ -363,9 +370,10 @@ class DatabaseManager:
 
         with self.get_connection() as conn:
             conn.execute(
-                """UPDATE one_time_searches 
+                """UPDATE one_time_searches
                    SET status = ?, results = ?, completed_at = CURRENT_TIMESTAMP,
-                       duration_seconds = (julianday(CURRENT_TIMESTAMP) - julianday(created_at)) * 86400
+                       duration_seconds = (julianday(CURRENT_TIMESTAMP) - 
+                                         julianday(created_at)) * 86400
                    WHERE id = ?""",
                 (status, results_json, search_id),
             )
@@ -375,10 +383,10 @@ class DatabaseManager:
         """Get recent one-time searches with results"""
         with self.get_connection() as conn:
             cursor = conn.execute(
-                """SELECT id, start_date, end_date, status, results, 
+                """SELECT id, start_date, end_date, status, results,
                           created_at, completed_at, duration_seconds
-                   FROM one_time_searches 
-                   ORDER BY created_at DESC 
+                   FROM one_time_searches
+                   ORDER BY created_at DESC
                    LIMIT ?""",
                 (limit,),
             )
@@ -421,7 +429,7 @@ class DatabaseManager:
         """Clean up old one-time search records"""
         with self.get_connection() as conn:
             conn.execute(
-                """DELETE FROM one_time_searches 
+                """DELETE FROM one_time_searches
                    WHERE created_at < datetime('now', '-{} days')""".format(days_old)
             )
             conn.commit()
