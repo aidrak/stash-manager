@@ -1,0 +1,26 @@
+services:
+  stash-manager-dev:
+    image: mcr.microsoft.com/devcontainers/python:3.11-bookworm
+    container_name: stash-manager-dev
+    ports:
+      - "8080:5001"
+    environment:
+      - TZ=America/Chicago
+      - FLASK_RUN_PORT=5001
+      - CONFIG_PATH=/workspace/config/app_state.yaml
+      - DATABASE_PATH=/workspace/config/stash_manager.db
+    volumes:
+      - .:/workspace
+      - ./config:/workspace/config
+      - ./data:/workspace/data
+    working_dir: /workspace
+    command: >
+      bash -c "
+        pip install -r requirements.txt -r requirements-dev.txt &&
+        export FLASK_APP=src.app:app &&
+        export FLASK_ENV=development &&
+        export FLASK_DEBUG=1 &&
+        python -m flask run --host=0.0.0.0 --port=5001
+      "
+    stdin_open: true
+    tty: true

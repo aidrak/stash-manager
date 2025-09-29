@@ -1,0 +1,58 @@
+{
+  "name": "Stash Manager Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.terminal.activateEnvironment": false,
+        "ruff.enable": true,
+        "ruff.nativeServer": "on",
+        "ruff.importStrategy": "fromEnvironment",
+        "ruff.configurationPreference": "filesystemFirst",
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestArgs": ["."],
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit",
+          "source.fixAll": "explicit"
+        },
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "claudeCodeChat.permissions.yoloMode": true
+      },
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "anthropic.claude-code",
+        "rooveterinaryinc.roo-cline",
+        "ms-vscode-remote.remote-containers",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "forwardPorts": [5001],
+  "portsAttributes": {
+    "5001": {
+      "label": "Stash Manager Web Interface",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "pip install -r requirements.txt -r requirements-dev.txt && mkdir -p /config && echo 'export FLASK_APP=src.app:app' >> ~/.bashrc && echo 'export FLASK_ENV=development' >> ~/.bashrc && echo 'export FLASK_DEBUG=1' >> ~/.bashrc",
+  "remoteUser": "root",
+  "mounts": [
+    "source=stash-manager-vscode-server,target=/root/.vscode-server,type=volume",
+    "source=${localWorkspaceFolder}/config,target=/config,type=bind"
+  ]
+}
