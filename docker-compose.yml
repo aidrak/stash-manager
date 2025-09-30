@@ -7,7 +7,7 @@ services:
     container_name: stash-manager
     restart: unless-stopped
     ports:
-      - "5001:5001"
+      - "8081:5001"
     environment:
       - TZ=America/Chicago
       - FLASK_RUN_PORT=5001

@@ -19,7 +19,7 @@ def _validate_time_format(time_str):
     """Validate time format (HH:MM)"""
     if not isinstance(time_str, str):
         return False
-    pattern = r"^(?[0-9]|2[0-3]):[0-5][0-9]$"
+    pattern = r"^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
     return bool(re.match(pattern, time_str))
 
 
