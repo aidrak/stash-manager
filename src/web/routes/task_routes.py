@@ -9,7 +9,7 @@ from src.config.config import get_config
 from src.core.scheduler import scheduler
 from src.core.utils import set_active_page
 from src.core.validation import ValidationError, validate_job_parameters
-from src.data.database_manager import DatabaseManager
+from src.core.database_manager import DatabaseManager
 from src.web.one_time_search import is_one_time_search_running
 from src.web.processor import add_new_scenes_to_whisparr, generate_metadata
 

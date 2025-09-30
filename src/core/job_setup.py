@@ -7,7 +7,7 @@ from src.config.config import get_config
 from src.core.logging_config import setup_logging
 from src.core.scheduler import scheduler
 from src.core.signal_handlers import shutdown_event
-from src.data.database_manager import DatabaseManager
+from src.core.database_manager import DatabaseManager
 from src.web.processor import (
     add_new_scenes_to_whisparr,
     add_new_scenes_with_prowlarr,
