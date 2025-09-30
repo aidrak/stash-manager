@@ -347,7 +347,7 @@ def start_one_time_search():
     try:
         start_date = request.form.get("start_date")
         end_date = request.form.get("end_date")
-        dry_run = "dry_run" in request.form
+        dry_run = request.form.get("dry_run") == "on"
 
         # Validation
         if not start_date or not end_date:

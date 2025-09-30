@@ -25,9 +25,9 @@
             <td>{{ last_run_times.add_new_scenes }}</td>
             <td>{{ next_run_times.add_new_scenes }}</td>
             <td>
-                <button class="btn btn-primary btn-sm run-job-btn" 
-                        data-job="add_new_scenes" 
-                        data-url="{{ url_for('run_job', job_name='add_new_scenes') }}">
+                <button class="btn btn-primary btn-sm run-job-btn"
+                        data-job="add_new_scenes_to_whisparr"
+                        data-url="{{ url_for('tasks.run_job', job_name='add_new_scenes_to_whisparr') }}">
                     <span class="btn-text">Run Now</span>
                     <span class="btn-spinner d-none">
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -42,9 +42,9 @@
             <td>{{ last_run_times.clean_existing_scenes }}</td>
             <td>{{ next_run_times.clean_existing_scenes }}</td>
             <td>
-                <button class="btn btn-primary btn-sm run-job-btn" 
-                        data-job="clean_existing_scenes" 
-                        data-url="{{ url_for('run_job', job_name='clean_existing_scenes') }}">
+                <button class="btn btn-primary btn-sm run-job-btn"
+                        data-job="clean_existing_scenes"
+                        data-url="{{ url_for('tasks.run_job', job_name='clean_existing_scenes') }}">
                     <span class="btn-text">Run Now</span>
                     <span class="btn-spinner d-none">
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -59,9 +59,9 @@
             <td>{{ last_run_times.scan_and_identify }}</td>
             <td>{{ next_run_times.scan_and_identify }}</td>
             <td>
-                <button class="btn btn-primary btn-sm run-job-btn" 
-                        data-job="scan_and_identify" 
-                        data-url="{{ url_for('run_job', job_name='scan_and_identify') }}">
+                <button class="btn btn-primary btn-sm run-job-btn"
+                        data-job="scan_and_identify"
+                        data-url="{{ url_for('tasks.run_job', job_name='scan_and_identify') }}">
                     <span class="btn-text">Run Now</span>
                     <span class="btn-spinner d-none">
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -76,9 +76,9 @@
             <td>{{ last_run_times.generate_metadata }}</td>
             <td>{{ next_run_times.generate_metadata }}</td>
             <td>
-                <button class="btn btn-primary btn-sm run-job-btn" 
-                        data-job="generate_metadata" 
-                        data-url="{{ url_for('run_job', job_name='generate_metadata') }}">
+                <button class="btn btn-primary btn-sm run-job-btn"
+                        data-job="generate_metadata"
+                        data-url="{{ url_for('tasks.run_job', job_name='generate_metadata') }}">
                     <span class="btn-text">Run Now</span>
                     <span class="btn-spinner d-none">
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
