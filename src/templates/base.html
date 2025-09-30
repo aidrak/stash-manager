@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Stash Manager{% endblock %}</title>
+    
+    <!-- Core CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    
+    <!-- Additional CSS -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Custom Styles -->
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #007bff;
+        }
+        .nav-pills .nav-link {
+            color: #6c757d;
+            margin-right: 0.5rem;
+        }
+        .nav-pills .nav-link:hover {
+            color: #007bff;
+        }
+        .drag-handle {
+            cursor: move;
+            font-size: 1.2em;
+            color: #6c757d;
+        }
+        .badge-accept {
+            background-color: #28a745;
+        }
+        .badge-reject {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-cogs"></i> Stash Manager
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ml-auto nav-pills">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'add_scenes' %}active{% endif %}" 
+                           href="{{ url_for('add_scenes') }}">
+                            <i class="fas fa-plus-circle"></i> Add Scenes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'clean_scenes' %}active{% endif %}" 
+                           href="{{ url_for('clean_scenes') }}">
+                            <i class="fas fa-broom"></i> Clean Scenes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'tasks' %}active{% endif %}" 
+                           href="{{ url_for('tasks') }}">
+                            <i class="fas fa-tasks"></i> Tasks
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'settings' %}active{% endif %}" 
+                           href="{{ url_for('settings') }}">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    </li>
+                    <!-- Add this after the Settings nav item -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'sync_settings' %}active{% endif %}" 
+                           href="{{ url_for('sync_settings') }}">
+                            <i class="fas fa-sync"></i> Rule Sync
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'one_time_search' %}active{% endif %}"
+                           href="{{ url_for('one_time_search.one_time_search_page') }}">
+                            <i class="fas fa-search"></i> One-Time Search
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div id="flash-container" class="container">
+        {% if get_flashed_messages %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} mt-3 alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        {% endif %}
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Core JavaScript -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Additional JavaScript -->
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Page-specific JavaScript -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Stash Manager - Add Scenes{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1 class="mt-5">Add Scenes</h1>
+</div>
+<p class="lead">{{ current_context.description }}</p>
+<div class="alert alert-info" role="alert">
+    <strong>🔥 Firewall Logic:</strong> Rules process in order until the first match. Use <strong>Accept</strong> to add scenes to Whisparr, <strong>Reject</strong> to skip them. Unmatched scenes are automatically rejected.
+</div>
+<p>These rules determine what scenes to add to Whisparr from StashDB. Rules are processed top to bottom - <strong>first match wins</strong>.</p>
+<button type="button" class="btn btn-success mb-3" data-toggle="modal" data-target="#rule-modal" data-action="add">Add New Rule</button>
+
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th width="80">Priority</th>
+            <th>Rule</th>
+            <th width="150">Actions</th>
+        </tr>
+    </thead>
+    <tbody id="rules-tbody">
+        {% for rule in rules %}
+        <tr data-id="{{ loop.index0 }}" style="cursor: move;">
+            <td>
+                <span class="drag-handle">
+                    ⋮⋮ {{ loop.index }}
+                </span>
+            </td>
+            <td style="cursor: default;">
+                <strong>
+                    {% if rule.field == 'performers.performer.measurements.cup_size' %}
+                        Cup Size
+                    {% elif rule.field == 'performers.performer.measurements.band_size' %}
+                        Band Size
+                    {% elif rule.field == 'performers.performer.measurements.waist' %}
+                        Waist Size
+                    {% elif rule.field == 'performers.performer.measurements.hip' %}
+                        Hip Size
+                    {% elif rule.field == 'performers.performer.name' %}
+                        Performer Name
+                    {% elif rule.field == 'performers.performer.ethnicity' %}
+                        Performer Ethnicity
+                    {% elif rule.field == 'performers.performer.gender' %}
+                        Performer Gender
+                    {% elif rule.field == 'tags' %}
+                        Tags
+                    {% elif rule.field == 'studio.name' %}
+                        Studio
+                    {% elif rule.field == 'title' %}
+                        Title
+                    {% elif rule.field == 'date' %}
+                        Release Date
+                    {% else %}
+                        {{ rule.field }}
+                    {% endif %}
+                </strong>
+                
+                {% if rule.match == 'include' %}
+                    includes
+                {% elif rule.match == 'exclude' %}
+                    excludes
+                {% elif rule.match == 'is_larger_than' %}
+                    is larger than
+                {% elif rule.match == 'is_smaller_than' %}
+                    is smaller than
+                {% else %}
+                    {{ rule.match }}
+                {% endif %}
+                
+                <em>{{ rule.value | replace(',', ' OR ') }}</em>
+                
+                → <span class="badge badge-{{ 'success' if rule.action == 'accept' else 'danger' }}">
+                    {{ rule.action.title() }}
+                </span>
+            </td>
+            <td style="cursor: default;">
+                <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#rule-modal" data-action="edit" data-rule-index="{{ loop.index0 }}" data-rule='{{ rule | tojson | escape }}'>Edit</button>
+                <a href="{{ url_for('delete_add_rule', rule_index=loop.index0) }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this rule?')">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Modal -->
+<div class="modal fade" id="rule-modal" tabindex="-1" role="dialog" aria-labelledby="rule-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rule-modal-label">Add Rule</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="rule-form" method="post">
+                    <div class="form-group">
+                        <label>Condition Type</label>
+                        <select name="condition-type" class="form-control condition-type" required>
+                            <option value="">Select Type</option>
+                            {% for key, condition in conditions.items() %}
+                            <option value="{{ key }}" data-toggle="tooltip" title="{{ condition.help_text }}">{{ condition.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Operator</label>
+                        <select name="condition-operator" class="form-control condition-operator" required>
+                            <option value="">Select Operator</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Value</label>
+                        <input type="text" name="condition-value" class="form-control condition-value" placeholder="Enter value (use commas for multiple: performer1,performer2)">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Action</label>
+                        <select name="action" class="form-control" required>
+                            <option value="accept">Accept - Add scene to Whisparr</option>
+                            <option value="reject">Reject - Do not add scene</option>
+                        </select>
+                    </div>
+
+                    <hr>
+                    <button type="submit" class="btn btn-primary">Save Rule</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const conditions = JSON.parse('{{ conditions | tojson | safe }}');
+
+    function updateOperatorDropdown(typeDropdown, selectedOperator = '') {
+        const conditionKey = typeDropdown.value;
+        const operatorDropdown = document.querySelector('.condition-operator');
+        operatorDropdown.innerHTML = '<option value="">Select Operator</option>';
+        
+        if (conditionKey && conditions[conditionKey]) {
+            const operators = conditions[conditionKey].operators;
+            for (const op of operators) {
+                const option = document.createElement('option');
+                option.value = op;
+                option.text = op.replace(/_/g, ' ');
+                if (op === selectedOperator) {
+                    option.selected = true;
+                }
+                operatorDropdown.appendChild(option);
+            }
+        }
+    }
+
+    function updateValueInput(typeDropdown, value = '') {
+        const conditionKey = typeDropdown.value;
+        const valueInput = document.querySelector('.condition-value');
+        
+        if (conditionKey && conditions[conditionKey].type === 'none') {
+            valueInput.style.display = 'none';
+            valueInput.value = '';
+        } else {
+            valueInput.style.display = 'block';
+            valueInput.value = value || '';
+        }
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('condition-type')) {
+            updateOperatorDropdown(e.target);
+            updateValueInput(e.target);
+        }
+    });
+
+    $('#rule-modal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+        const action = button.data('action');
+        const modal = $(this);
+        const form = document.getElementById('rule-form');
+
+        if (action === 'add') {
+            modal.find('.modal-title').text('Add Rule');
+            form.action = "{{ url_for('add_add_rule') }}";
+            form.reset();
+            // Clear the operator dropdown when adding new rule
+            updateOperatorDropdown(form.querySelector('[name="condition-type"]'));
+        } else if (action === 'edit') {
+            modal.find('.modal-title').text('Edit Rule');
+            const ruleIndex = button.data('rule-index');
+            const rule = button.data('rule');
+            form.action = `/add-scenes/edit/${ruleIndex}`;
+            
+            console.log('Editing add rule:', rule); // Debug log
+            
+            // Populate form with rule data using the correct field names
+            form.querySelector('[name="condition-type"]').value = rule.field || '';
+            form.querySelector('[name="condition-value"]').value = rule.value || '';
+            form.querySelector('[name="action"]').value = rule.action || 'reject';
+            
+            // Update operator dropdown with the correct match value
+            updateOperatorDropdown(form.querySelector('[name="condition-type"]'), rule.match);
+            updateValueInput(form.querySelector('[name="condition-type"]'), rule.value);
+        }
+    });
+
+    // Sortable functionality
+    const tbody = document.getElementById('rules-tbody');
+    new Sortable(tbody, {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: function (evt) {
+            const newOrder = Array.from(tbody.children).map(row => parseInt(row.dataset.id));
+            fetch('/add-scenes/reorder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ new_order: newOrder }),
+            }).then(() => {
+                Array.from(tbody.children).forEach((row, index) => {
+                    const priorityCell = row.children[0].querySelector('.drag-handle');
+                    priorityCell.innerHTML = `⋮⋮ ${index + 1}`;
+                });
+            }).catch(() => {
+                window.location.reload();
+            });
+        },
+    });
+</script>
+{% endblock %}

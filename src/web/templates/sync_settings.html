@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}Rule Sync Settings - Stash Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+.sync-toggle {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.sync-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #28a745;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.sync-status {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.sync-status.in-sync {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.sync-status.out-of-sync {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1 class="mt-5">Rule Synchronization</h1>
+</div>
+<p class="lead">Configure automatic synchronization between Add Scenes and Clean Scenes rules.</p>
+
+<div class="alert alert-info" role="alert">
+    <strong><i class="fas fa-info-circle"></i> How Rule Sync Works:</strong>
+    When enabled, changes to rules in one context will automatically create equivalent rules in the other context, accounting for the different data structures between StashDB and Local Stash.
+</div>
+
+<!-- Sync Status -->
+<div id="sync-status" class="sync-status">
+    <div class="d-flex align-items-center">
+        <div id="status-icon" class="mr-2">
+            <i class="fas fa-sync fa-spin" style="display: none;"></i>
+            <i class="fas fa-check-circle text-success" style="display: none;"></i>
+            <i class="fas fa-exclamation-triangle text-warning" style="display: none;"></i>
+        </div>
+        <div>
+            <strong id="status-title">Checking sync status...</strong>
+            <div id="status-message" class="small"></div>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="sync-form">
+    <div class="card">
+        <div class="card-header">
+            <h5>Sync Configuration</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group row">
+                <label for="sync_enabled" class="col-sm-3 col-form-label">
+                    <strong>Rule Synchronization</strong>
+                </label>
+                <div class="col-sm-9">
+                    <div class="d-flex align-items-center">
+                        <label class="sync-toggle mr-3">
+                            <input type="checkbox" id="sync_enabled" name="sync_enabled"
+                                   {% if sync_config.enabled %}checked{% endif %}>
+                            <span class="slider"></span>
+                        </label>
+                        <span id="sync-status-text">
+                            {% if sync_config.enabled %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </div>
+                    <small class="form-text text-muted">
+                        When enabled, rules will be automatically synchronized between contexts when you add, edit, or delete them.
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row" id="sync_direction_group">
+                <label for="sync_direction" class="col-sm-3 col-form-label">Sync Direction</label>
+                <div class="col-sm-9">
+                    <select class="form-control" id="sync_direction" name="sync_direction">
+                        <option value="add_to_clean" {% if sync_config.direction == 'add_to_clean' %}selected{% endif %}>
+                            Add Scenes → Clean Scenes (Recommended)
+                        </option>
+                        <option value="clean_to_add" {% if sync_config.direction == 'clean_to_add' %}selected{% endif %}>
+                            Clean Scenes → Add Scenes
+                        </option>
+                        <option value="bidirectional" {% if sync_config.direction == 'bidirectional' %}selected{% endif %}>
+                            Bidirectional (Both ways)
+                        </option>
+                    </select>
+                    <small class="form-text text-muted">
+                        Choose which direction rules should sync. Bidirectional means any change in either context will update the other.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Sync Actions</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <button type="button" class="btn btn-outline-primary btn-block" id="sync_now_add_to_clean">
+                        <i class="fas fa-sync"></i> Sync Add → Clean Now
+                    </button>
+                    <small class="form-text text-muted">
+                        Immediately sync all Add Scenes rules to Clean Scenes
+                    </small>
+                </div>
+                <div class="col-md-6">
+                    <button type="button" class="btn btn-outline-primary btn-block" id="sync_now_clean_to_add">
+                        <i class="fas fa-sync"></i> Sync Clean → Add Now
+                    </button>
+                    <small class="form-text text-muted">
+                        Immediately sync all Clean Scenes rules to Add Scenes
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('settings.settings') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Settings
+        </a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        checkSyncStatus();
+        
+        // Toggle sync direction visibility based on enabled toggle
+        function toggleSyncOptions() {
+            const enabled = $('#sync_enabled').is(':checked');
+            $('#sync_direction_group').toggle(enabled);
+            $('#sync-status-text').text(enabled ? 'Enabled' : 'Disabled');
+        }
+        
+        $('#sync_enabled').change(function() {
+            const isChecked = $(this).is(':checked');
+            const toggle = $(this);
+            
+            if (isChecked) {
+                // If trying to enable, check sync status first
+                checkSyncStatus().then(function(result) {
+                    if (!result.in_sync) {
+                        // Prevent enabling and show single error
+                        toggle.prop('checked', false);
+                        toggleSyncOptions();
+                        showAlert('danger', 'Rules must be in sync before enabling Rule Synchronization. ' + result.reason);
+                    } else {
+                        // Rules are in sync, save the setting immediately
+                        toggleSyncOptions();
+                        saveSettings();
+                    }
+                }).catch(function(error) {
+                    // Error checking status, prevent enabling
+                    toggle.prop('checked', false);
+                    toggleSyncOptions();
+                    showAlert('danger', 'Error checking sync status. Please try again.');
+                });
+            } else {
+                // Disabling sync, save immediately
+                toggleSyncOptions();
+                saveSettings();
+            }
+        });
+        
+        function saveSettings() {
+            const enabled = $('#sync_enabled').is(':checked');
+            const direction = $('#sync_direction').val();
+            
+            fetch('{{ url_for('settings.sync_settings') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'sync_enabled': enabled ? 'on' : '',
+                    'sync_direction': direction
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    showAlert('success', 'Sync settings saved!');
+                } else if (response.status === 400) {
+                    // Handle validation errors from server
+                    return response.json().then(data => {
+                        // Revert the toggle if there was a server-side error
+                        $('#sync_enabled').prop('checked', false);
+                        toggleSyncOptions();
+                        showAlert('danger', data.error || 'Error enabling sync');
+                    });
+                } else {
+                    showAlert('danger', 'Error saving sync settings');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving sync settings:', error);
+                showAlert('danger', 'Error saving sync settings');
+            });
+        }
+        
+        // Also save when direction changes (if sync is enabled)
+        $('#sync_direction').change(function() {
+            if ($('#sync_enabled').is(':checked')) {
+                saveSettings();
+            }
+        });
+        
+        toggleSyncOptions(); // Initial state
+        
+        // Form submission no longer needed
+        // All changes are saved immediately via AJAX
+        $('#sync_now_add_to_clean').click(function() {
+            if (confirm('This will overwrite all Clean Scenes rules with converted Add Scenes rules. Continue?')) {
+                performManualSync('add_to_clean');
+            }
+        });
+        
+        $('#sync_now_clean_to_add').click(function() {
+            if (confirm('This will overwrite all Add Scenes rules with converted Clean Scenes rules. Continue?')) {
+                performManualSync('clean_to_add');
+            }
+        });
+        
+        function checkSyncStatus() {
+            const statusDiv = $('#sync-status');
+            const statusIcon = $('#status-icon');
+            const statusTitle = $('#status-title');
+            const statusMessage = $('#status-message');
+            
+            // Show loading
+            statusIcon.find('.fa-sync').show();
+            statusIcon.find('.fa-check-circle, .fa-exclamation-triangle').hide();
+            statusTitle.text('Checking sync status...');
+            statusMessage.text('');
+            
+            return fetch('{{ url_for('settings.check_sync_status') }}')
+                .then(response => response.json())
+                .then(data => {
+                    statusIcon.find('.fa-sync').hide();
+                    
+                    if (data.in_sync) {
+                        statusDiv.removeClass('out-of-sync').addClass('in-sync');
+                        statusIcon.find('.fa-check-circle').show();
+                        statusTitle.text('Rules are in sync');
+                        statusMessage.text(data.reason);
+                    } else {
+                        statusDiv.removeClass('in-sync').addClass('out-of-sync');
+                        statusIcon.find('.fa-exclamation-triangle').show();
+                        statusTitle.text('Rules are out of sync');
+                        statusMessage.text(data.reason);
+                    }
+                    
+                    return data;
+                })
+                .catch(error => {
+                    console.error('Error checking sync status:', error);
+                    statusIcon.find('.fa-sync').hide();
+                    statusIcon.find('.fa-exclamation-triangle').show();
+                    statusDiv.removeClass('in-sync').addClass('out-of-sync');
+                    statusTitle.text('Error checking sync status');
+                    statusMessage.text('Unable to check sync status');
+                    return { in_sync: false, reason: 'Error checking status' };
+                });
+        }
+        
+        function performManualSync(direction) {
+            const btn = direction === 'add_to_clean' ? $('#sync_now_add_to_clean') : $('#sync_now_clean_to_add');
+            const originalText = btn.html();
+            
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Syncing...');
+            
+            fetch('{{ url_for('settings.manual_sync') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ direction: direction })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    checkSyncStatus(); // Refresh sync status
+                } else {
+                    showAlert('danger', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'Error performing sync: ' + error.message);
+            })
+            .finally(() => {
+                btn.prop('disabled', false).html(originalText);
+            });
+        }
+        
+        function showAlert(type, message) {
+            // Remove any existing alerts
+            $('.alert-dismissible').remove();
+            
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+                    ${message}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            `;
+            $('body').append(alertHtml);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(function() {
+                $('.alert:last').alert('close');
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

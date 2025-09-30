@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+
+{% block title %}One-Time Search - Stash Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mt-4"><i class="fas fa-calendar-search"></i> One-Time Search</h1>
+        <p class="text-muted">Search for scenes in specific date ranges</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary mt-4">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-search"></i> New Search</h5>
+            </div>
+            <div class="card-body">
+                <div class="preset-buttons mb-3">
+                    <label class="form-label">Quick Presets:</label><br>
+                    {% for key, preset in presets.items() %}
+                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                            onclick="setDateRange('{{ preset.start_date }}', '{{ preset.end_date }}')">
+                        {{ preset.label }}
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <form id="searchForm">
+                    <div class="date-input-group">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required>
+                    </div>
+                    
+                    <div class="date-input-group">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" required>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run">
+                        <label class="form-check-label" for="dry_run">
+                            Dry Run (preview only, don't add scenes)
+                        </label>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="startBtn">
+                            <i class="fas fa-play"></i> Start Search
+                        </button>
+                        <button type="button" class="btn btn-danger d-none" id="cancelBtn" onclick="cancelSearch()">
+                            <i class="fas fa-stop"></i> Cancel Search
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Progress</h5>
+            </div>
+            <div class="card-body">
+                <div id="progressContainer" class="d-none">
+                    <div class="progress mb-3">
+                        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%">
+                            <span id="progressText">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div id="statusInfo" class="job-status">
+                        <p class="mb-1"><strong>Status:</strong> <span id="statusMessage">Ready</span></p>
+                        <p class="mb-1"><strong>Progress:</strong> <span id="detailsText">-</span></p>
+                        <p class="mb-0"><strong>Scenes Processed:</strong> <span id="scenesProcessed">0</span></p>
+                    </div>
+                </div>
+
+                <div id="noProgress" class="text-center text-muted">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>No search currently running</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-terminal"></i> Live Log</h6>
+            </div>
+            <div class="card-body p-0">
+                <div id="logContainer" class="log-container">
+                    <div class="text-muted">No activity yet...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-history"></i> Search History</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshHistory()">
+                    <i class="fas fa-refresh"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="search-history">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date Range</th>
+                                    <th>Status</th>
+                                    <th>Results</th>
+                                    <th>Duration</th>
+                                    <th>Started</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                {% for search in recent_searches %}
+                                <tr>
+                                    <td>{{ search.start_date }} to {{ search.end_date }}</td>
+                                    <td>
+                                        <span class="badge status-badge 
+                                            {% if search.status == 'completed' %}bg-success
+                                            {% elif search.status == 'failed' %}bg-danger
+                                            {% elif search.status == 'running' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ search.status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if search.results %}
+                                            {{ search.results.get('scenes_added', 0) }} added / 
+                                            {{ search.results.get('total_found', 0) }} found
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if search.duration_seconds %}
+                                            {{ "%.1f"|format(search.duration_seconds) }}s
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ search.created_at[:19] }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="rerunSearch({{ search.id }})"
+                                                title="Rerun this search">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let progressInterval = null;
+    let isSearchRunning = false;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        checkForRunningJob();
+        
+        // Set max date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('start_date').max = today;
+        document.getElementById('end_date').max = today;
+    });
+
+    // Set date range from presets
+    function setDateRange(startDate, endDate) {
+        document.getElementById('start_date').value = startDate;
+        document.getElementById('end_date').value = endDate;
+    }
+
+    // Handle form submission
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        startSearch();
+    });
+
+    // Start search
+    function startSearch() {
+        const formData = new FormData(document.getElementById('searchForm'));
+        
+        // Validate dates
+        const startDate = new Date(formData.get('start_date'));
+        const endDate = new Date(formData.get('end_date'));
+        
+        if (startDate > endDate) {
+            alert('Start date must be before end date');
+            return;
+        }
+
+        fetch('/one-time-search/start', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isSearchRunning = true;
+                updateUI();
+                startProgressMonitoring();
+                addLogMessage('Search started: ' + data.message);
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error starting search:', error);
+            alert('Error starting search');
+        });
+    }
+
+    // Cancel search
+    function cancelSearch() {
+        fetch('/one-time-search/cancel')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addLogMessage('Search cancelled');
+                stopProgressMonitoring();
+            } else {
+                alert('Error cancelling search: ' + data.message);
+            }
+        });
+    }
+
+    // Start progress monitoring
+    function startProgressMonitoring() {
+        progressInterval = setInterval(updateProgress, 2000);
+        updateProgress(); // Initial update
+    }
+
+    // Stop progress monitoring
+    function stopProgressMonitoring() {
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+        isSearchRunning = false;
+        updateUI();
+    }
+
+    // Update progress
+    function updateProgress() {
+        const formElements = document.querySelectorAll('#searchForm input, #searchForm button, .btn');
+        
+        // Disable UI elements during fetch, except for the cancel button
+        formElements.forEach(function(el) {
+            if (el.id !== 'cancelBtn') {
+                el.disabled = true;
+            }
+        });
+
+        fetch('/one-time-search/progress')
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.is_running) {
+                    updateProgressDisplay(data.progress);
+                } else {
+                    stopProgressMonitoring();
+                    refreshHistory();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error fetching progress:', error);
+                stopProgressMonitoring();
+            })
+            .finally(function() {
+                // Re-enable UI elements after fetch, unless a search is still running
+                if (!isSearchRunning) {
+                    formElements.forEach(function(el) { el.disabled = false; });
+                }
+            });
+    }
+
+    // Update progress display
+    function updateProgressDisplay(progress) {
+        if (!progress) return;
+
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const statusMessage = document.getElementById('statusMessage');
+        const detailsText = document.getElementById('detailsText');
+        const scenesProcessed = document.getElementById('scenesProcessed');
+        const statusInfo = document.getElementById('statusInfo');
+
+        // Update progress bar
+        const percent = progress.progress || 0;
+        progressBar.style.width = percent + '%';
+        progressText.textContent = percent + '%';
+
+        // Update status
+        statusMessage.textContent = progress.status || 'Running';
+        detailsText.textContent = progress.message || 'Processing...';
+        scenesProcessed.textContent = progress.scenes_processed || 0;
+
+        // Update status color
+        statusInfo.className = 'job-status ' + (progress.status || 'running');
+
+        // Add log message if new
+        if (progress.message && progress.message !== window.lastLogMessage) {
+            addLogMessage(progress.message);
+            window.lastLogMessage = progress.message;
+        }
+
+        // Update progress bar color based on status
+        progressBar.className = 'progress-bar';
+        if (progress.status === 'completed') {
+            progressBar.classList.add('bg-success');
+        } else if (progress.status === 'failed') {
+            progressBar.classList.add('bg-danger');
+        } else if (progress.status === 'cancelled') {
+            progressBar.classList.add('bg-warning');
+        }
+    }
+
+    // Update UI based on search state
+    function updateUI() {
+        const startBtn = document.getElementById('startBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const noProgress = document.getElementById('noProgress');
+        const formElements = document.querySelectorAll('#searchForm input, #searchForm button[type="submit"]');
+
+        if (isSearchRunning) {
+            startBtn.classList.add('d-none');
+            cancelBtn.classList.remove('d-none');
+            progressContainer.classList.remove('d-none');
+            noProgress.classList.add('d-none');
+            
+            // Disable form elements
+            formElements.forEach(el => el.disabled = true);
+        } else {
+            startBtn.classList.remove('d-none');
+            cancelBtn.classList.add('d-none');
+            progressContainer.classList.add('d-none');
+            noProgress.classList.remove('d-none');
+            
+            // Enable form elements
+            formElements.forEach(el => el.disabled = false);
+        }
+    }
+
+    // Add log message
+    function addLogMessage(message) {
+        const logContainer = document.getElementById('logContainer');
+        const timestamp = new Date().toLocaleTimeString();
+        
+        // Clear "No activity" message
+        if (logContainer.querySelector('.text-muted')) {
+            logContainer.innerHTML = '';
+        }
+        
+        const logLine = document.createElement('div');
+        logLine.innerHTML = `<span style="color: #6c757d;">[${timestamp}]</span> ${message}`;
+        logContainer.appendChild(logLine);
+        
+        // Auto-scroll to bottom
+        logContainer.scrollTop = logContainer.scrollHeight;
+        
+        // Keep only last 50 lines
+        while (logContainer.children.length > 50) {
+            logContainer.removeChild(logContainer.firstChild);
+        }
+    }
+
+    // Check for running job on page load
+    function checkForRunningJob() {
+        fetch('/one-time-search/progress')
+        .then(response => response.json())
+        .then(data => {
+            if (data.is_running) {
+                isSearchRunning = true;
+                updateUI();
+                startProgressMonitoring();
+                addLogMessage('Resumed monitoring existing search...');
+            }
+        })
+        .catch(error => {
+            console.error('Error checking for running job:', error);
+        });
+    }
+
+    // Refresh history table
+    function refreshHistory() {
+        fetch('/one-time-search/history')
+        .then(response => response.json())
+        .then(data => {
+            updateHistoryTable(data.searches);
+        })
+        .catch(error => {
+            console.error('Error refreshing history:', error);
+        });
+    }
+
+    // Update history table
+    function updateHistoryTable(searches) {
+        const tbody = document.getElementById('historyTableBody');
+        tbody.innerHTML = '';
+
+        searches.forEach(search => {
+            const row = document.createElement('tr');
+            
+            // Format duration
+            let duration = '-';
+            if (search.duration_seconds) {
+                if (search.duration_seconds < 60) {
+                    duration = search.duration_seconds.toFixed(1) + 's';
+                } else {
+                    const minutes = Math.floor(search.duration_seconds / 60);
+                    const seconds = (search.duration_seconds % 60).toFixed(0);
+                    duration = `${minutes}m ${seconds}s`;
+                }
+            }
+
+            // Format results
+            let results = '-';
+            if (search.results) {
+                const added = search.results.scenes_added || 0;
+                const found = search.results.total_found || 0;
+                results = `${added} added / ${found} found`;
+            }
+
+            // Status badge class
+            let badgeClass = 'bg-secondary';
+            if (search.status === 'completed') badgeClass = 'bg-success';
+            else if (search.status === 'failed') badgeClass = 'bg-danger';
+            else if (search.status === 'running') badgeClass = 'bg-warning';
+
+            row.innerHTML = `
+                <td>${search.start_date} to ${search.end_date}</td>
+                <td>
+                    <span class="badge status-badge ${badgeClass}">
+                        ${search.status.charAt(0).toUpperCase() + search.status.slice(1)}
+                    </span>
+                </td>
+                <td>${results}</td>
+                <td>${duration}</td>
+                <td>${search.created_at.substring(0, 19)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick="rerunSearch(${search.id})"
+                            title="Rerun this search"
+                            ${isSearchRunning ? 'disabled' : ''}>
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    // Rerun search
+    function rerunSearch(searchId) {
+        if (isSearchRunning) {
+            alert('Please wait for the current search to complete');
+            return;
+        }
+
+        if (!confirm('Rerun this search?')) {
+            return;
+        }
+
+        fetch(`/one-time-search/rerun/${searchId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isSearchRunning = true;
+                updateUI();
+                startProgressMonitoring();
+                addLogMessage('Restarted search: ' + data.message);
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error rerunning search:', error);
+            alert('Error rerunning search');
+        });
+    }
+
+    // Auto-refresh every 30 seconds when not actively monitoring
+    setInterval(function() {
+        if (!isSearchRunning) {
+            refreshHistory();
+        }
+    }, 30000);
+</script>
+{% endblock %}

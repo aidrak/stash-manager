@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Stash Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-viewer {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+        font-size: 13px;
+        height: 600px;
+        overflow-y: auto;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #444;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .log-entry {
+        margin: 2px 0;
+        padding: 2px 0;
+        border-bottom: 1px solid #333;
+    }
+
+    .log-entry:last-child {
+        border-bottom: none;
+    }
+
+    .log-level-ERROR {
+        color: #ff6b6b;
+        font-weight: bold;
+    }
+
+    .log-level-WARNING {
+        color: #ffa726;
+        font-weight: bold;
+    }
+
+    .log-level-INFO {
+        color: #66bb6a;
+    }
+
+    .log-level-DEBUG {
+        color: #42a5f5;
+    }
+
+    .log-timestamp {
+        color: #888;
+        margin-right: 10px;
+    }
+
+    .log-logger {
+        color: #ba68c8;
+        margin-right: 10px;
+    }
+
+    .log-controls {
+        margin-bottom: 15px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+
+    .connection-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+    }
+
+    .status-connected {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-connecting {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .log-stats {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 10px;
+    }
+
+    .btn-group {
+        margin-right: 10px;
+    }
+
+    .search-highlight {
+        background-color: #ffeb3b;
+        color: #000;
+        padding: 1px 2px;
+    }
+
+    #searchInput {
+        max-width: 300px;
+    }
+
+    .auto-scroll-indicator {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #007bff;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        z-index: 1000;
+    }
+
+    .auto-scroll-indicator.visible {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h2><i class="fas fa-file-alt"></i> System Logs</h2>
+
+        <!-- Log Controls -->
+        <div class="log-controls">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="toggleStream">
+                            <i class="fas fa-play"></i> Start Stream
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearLogs">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="downloadLogs">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+
+                    <div class="btn-group ml-2" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-info" id="toggleAutoScroll">
+                            <i class="fas fa-arrow-down"></i> Auto-scroll
+                        </button>
+                    </div>
+
+                    <span class="connection-status status-disconnected" id="connectionStatus">Disconnected</span>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="form-row">
+                        <div class="col-md-6">
+                            <select class="form-control form-control-sm" id="levelFilter">
+                                <option value="">All Levels</option>
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" id="searchInput" placeholder="Search logs...">
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-stats mt-2">
+                <span id="logCount">0 entries</span> |
+                <span id="filteredCount">0 shown</span> |
+                <span id="lastUpdate">No updates</span>
+            </div>
+        </div>
+
+        <!-- Log Viewer -->
+        <div class="log-viewer" id="logViewer">
+            <div class="text-center text-muted">
+                <i class="fas fa-spinner fa-spin"></i> Connecting to log stream...
+            </div>
+        </div>
+
+        <!-- Auto-scroll indicator -->
+        <div class="auto-scroll-indicator" id="autoScrollIndicator">
+            <i class="fas fa-arrow-down"></i> Auto-scrolling
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+class LogViewer {
+    constructor() {
+        this.eventSource = null;
+        this.isStreaming = false;
+        this.autoScroll = true;
+        this.logs = [];
+        this.filteredLogs = [];
+        this.currentSearch = '';
+        this.currentLevelFilter = '';
+
+        this.initializeElements();
+        this.attachEventListeners();
+        this.loadHistoricalLogs();
+    }
+
+    initializeElements() {
+        this.logViewer = document.getElementById('logViewer');
+        this.toggleStreamBtn = document.getElementById('toggleStream');
+        this.clearLogsBtn = document.getElementById('clearLogs');
+        this.downloadLogsBtn = document.getElementById('downloadLogs');
+        this.toggleAutoScrollBtn = document.getElementById('toggleAutoScroll');
+        this.connectionStatus = document.getElementById('connectionStatus');
+        this.levelFilter = document.getElementById('levelFilter');
+        this.searchInput = document.getElementById('searchInput');
+        this.clearSearchBtn = document.getElementById('clearSearch');
+        this.logCount = document.getElementById('logCount');
+        this.filteredCount = document.getElementById('filteredCount');
+        this.lastUpdate = document.getElementById('lastUpdate');
+        this.autoScrollIndicator = document.getElementById('autoScrollIndicator');
+    }
+
+    attachEventListeners() {
+        this.toggleStreamBtn.addEventListener('click', () => this.toggleStream());
+        this.clearLogsBtn.addEventListener('click', () => this.clearLogs());
+        this.downloadLogsBtn.addEventListener('click', () => this.downloadLogs());
+        this.toggleAutoScrollBtn.addEventListener('click', () => this.toggleAutoScroll());
+        this.levelFilter.addEventListener('change', () => this.applyFilters());
+        this.searchInput.addEventListener('input', () => this.applyFilters());
+        this.clearSearchBtn.addEventListener('click', () => this.clearSearch());
+
+        // Auto-scroll detection
+        this.logViewer.addEventListener('scroll', () => {
+            const isAtBottom = this.logViewer.scrollTop + this.logViewer.clientHeight >= this.logViewer.scrollHeight - 5;
+            if (!isAtBottom && this.autoScroll) {
+                this.autoScroll = false;
+                this.updateAutoScrollButton();
+            }
+        });
+    }
+
+    async loadHistoricalLogs() {
+        try {
+            const response = await fetch('/api/logs/history?limit=100');
+            const data = await response.json();
+
+            if (data.logs) {
+                this.logs = data.logs;
+                this.applyFilters();
+                this.updateStats();
+            }
+        } catch (error) {
+            console.error('Failed to load historical logs:', error);
+            this.showError('Failed to load historical logs');
+        }
+    }
+
+    toggleStream() {
+        if (this.isStreaming) {
+            this.stopStream();
+        } else {
+            this.startStream();
+        }
+    }
+
+    startStream() {
+        if (this.eventSource) {
+            this.eventSource.close();
+        }
+
+        this.updateConnectionStatus('connecting');
+
+        this.eventSource = new EventSource('/api/logs/stream');
+
+        this.eventSource.onopen = () => {
+            this.isStreaming = true;
+            this.updateConnectionStatus('connected');
+            this.updateStreamButton();
+        };
+
+        this.eventSource.onmessage = (event) => {
+            try {
+                const logEntry = JSON.parse(event.data);
+                if (logEntry.type !== 'ping') {
+                    this.addLogEntry(logEntry);
+                }
+                this.updateLastUpdate();
+            } catch (error) {
+                console.error('Error parsing log entry:', error);
+            }
+        };
+
+        this.eventSource.onerror = () => {
+            this.isStreaming = false;
+            this.updateConnectionStatus('disconnected');
+            this.updateStreamButton();
+
+            // Try to reconnect after a delay
+            setTimeout(() => {
+                if (!this.isStreaming) {
+                    console.log('Attempting to reconnect...');
+                    this.startStream();
+                }
+            }, 5000);
+        };
+    }
+
+    stopStream() {
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        this.isStreaming = false;
+        this.updateConnectionStatus('disconnected');
+        this.updateStreamButton();
+    }
+
+    addLogEntry(logEntry) {
+        this.logs.push(logEntry);
+
+        // Keep only last 1000 entries
+        if (this.logs.length > 1000) {
+            this.logs = this.logs.slice(-1000);
+        }
+
+        this.applyFilters();
+        this.updateStats();
+
+        if (this.autoScroll) {
+            this.scrollToBottom();
+        }
+    }
+
+    applyFilters() {
+        this.currentSearch = this.searchInput.value.toLowerCase();
+        this.currentLevelFilter = this.levelFilter.value;
+
+        this.filteredLogs = this.logs.filter(log => {
+            const matchesLevel = !this.currentLevelFilter || log.level === this.currentLevelFilter;
+            const matchesSearch = !this.currentSearch ||
+                log.message.toLowerCase().includes(this.currentSearch) ||
+                log.logger.toLowerCase().includes(this.currentSearch);
+
+            return matchesLevel && matchesSearch;
+        });
+
+        this.renderLogs();
+        this.updateStats();
+    }
+
+    renderLogs() {
+        if (this.filteredLogs.length === 0) {
+            this.logViewer.innerHTML = '<div class="text-center text-muted">No logs to display</div>';
+            return;
+        }
+
+        const html = this.filteredLogs.map(log => this.formatLogEntry(log)).join('');
+        this.logViewer.innerHTML = html;
+
+        if (this.autoScroll) {
+            this.scrollToBottom();
+        }
+    }
+
+    formatLogEntry(log) {
+        let message = log.message;
+
+        // Highlight search terms
+        if (this.currentSearch) {
+            const regex = new RegExp(`(${this.currentSearch})`, 'gi');
+            message = message.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+
+        const timestamp = new Date(log.timestamp).toLocaleString();
+
+        return `
+            <div class="log-entry log-level-${log.level}">
+                <span class="log-timestamp">${timestamp}</span>
+                <span class="log-logger">[${log.logger}]</span>
+                <span class="log-level">${log.level}:</span>
+                <span class="log-message">${message}</span>
+            </div>
+        `;
+    }
+
+    clearLogs() {
+        if (confirm('Are you sure you want to clear all logs from the display?')) {
+            this.logs = [];
+            this.filteredLogs = [];
+            this.renderLogs();
+            this.updateStats();
+        }
+    }
+
+    clearSearch() {
+        this.searchInput.value = '';
+        this.applyFilters();
+    }
+
+    toggleAutoScroll() {
+        this.autoScroll = !this.autoScroll;
+        this.updateAutoScrollButton();
+
+        if (this.autoScroll) {
+            this.scrollToBottom();
+        }
+    }
+
+    downloadLogs() {
+        window.open('/api/logs/download', '_blank');
+    }
+
+    scrollToBottom() {
+        this.logViewer.scrollTop = this.logViewer.scrollHeight;
+    }
+
+    updateStreamButton() {
+        if (this.isStreaming) {
+            this.toggleStreamBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Stream';
+            this.toggleStreamBtn.className = 'btn btn-sm btn-outline-danger';
+        } else {
+            this.toggleStreamBtn.innerHTML = '<i class="fas fa-play"></i> Start Stream';
+            this.toggleStreamBtn.className = 'btn btn-sm btn-outline-primary';
+        }
+    }
+
+    updateAutoScrollButton() {
+        if (this.autoScroll) {
+            this.toggleAutoScrollBtn.innerHTML = '<i class="fas fa-arrow-down"></i> Auto-scroll';
+            this.toggleAutoScrollBtn.className = 'btn btn-sm btn-info';
+            this.autoScrollIndicator.classList.add('visible');
+        } else {
+            this.toggleAutoScrollBtn.innerHTML = '<i class="fas fa-arrow-down"></i> Auto-scroll';
+            this.toggleAutoScrollBtn.className = 'btn btn-sm btn-outline-info';
+            this.autoScrollIndicator.classList.remove('visible');
+        }
+    }
+
+    updateConnectionStatus(status) {
+        this.connectionStatus.className = `connection-status status-${status}`;
+        this.connectionStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    }
+
+    updateStats() {
+        this.logCount.textContent = `${this.logs.length} entries`;
+        this.filteredCount.textContent = `${this.filteredLogs.length} shown`;
+    }
+
+    updateLastUpdate() {
+        this.lastUpdate.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+    }
+
+    showError(message) {
+        this.logViewer.innerHTML = `<div class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${message}</div>`;
+    }
+}
+
+// Initialize log viewer when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    window.logViewer = new LogViewer();
+});
+</script>
+{% endblock %}

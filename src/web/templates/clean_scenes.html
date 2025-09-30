@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Stash Manager - Clean Scenes{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+{% endblock %}
+
+{% block page_title %}Clean Scenes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1 class="mt-5">Clean Scenes</h1>
+</div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} mt-3">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <p class="lead">{{ filter_context.description }}</p>
+
+        {% if is_read_only %}
+        <div class="alert alert-warning" role="alert">
+            <strong><i class="fas fa-lock"></i> Read-Only Mode:</strong>
+            This context is currently read-only because Rule Sync is enabled with direction "{{ sync_settings.direction }}".
+            Rules in this context are automatically managed from the source context.
+            To make changes, either edit rules in the source context or
+            <a href="{{ url_for('settings.sync_settings') }}">change the sync direction</a>.
+        </div>
+        {% endif %}
+        <div class="alert alert-warning" role="alert">
+            <strong>⚠️ Warning:</strong> Scenes that get <strong>REJECTED</strong> by these rules will be <strong>DELETED</strong> from your Stash library!
+        </div>
+        <div class="alert alert-info" role="alert">
+            <strong>🔥 Firewall Logic:</strong> Rules process in order until the first match. Use <strong>Accept</strong> to keep scenes, <strong>Reject</strong> to delete them. Unmatched scenes are automatically rejected.
+        </div>
+        <p>These rules determine what scenes to keep or remove from your existing Stash library. Rules are processed top to bottom - <strong>first match wins</strong>.</p>
+        <div class="mb-3">
+            <button type="button" class="btn btn-success" data-toggle="modal" data-target="#rule-modal" data-action="add"
+                    {% if is_read_only %}disabled title="Read-only mode - cannot add rules"{% endif %}>Add New Rule</button>
+            <button class="btn btn-primary ml-2 run-job-btn"
+                    data-job="clean_existing_scenes"
+                    data-url="{{ url_for('tasks.run_job', job_name='clean_existing_scenes') }}">
+                <span class="btn-text">Run Now</span>
+                <span class="btn-spinner d-none">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Running...
+                </span>
+            </button>
+        </div>
+        
+        <table class="table mt-3">
+            <thead>
+                <tr>
+                    <th width="80">Priority</th>
+                    <th>Rule</th>
+                    <th width="150">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="rules-tbody">
+                {% for rule in rules %}
+                <tr data-id="{{ loop.index0 }}" {% if not is_read_only %}style="cursor: move;"{% endif %}>
+                    <td>
+                        <span class="drag-handle" style="{% if is_read_only %}opacity: 0.5; cursor: not-allowed;{% else %}cursor: move;{% endif %} font-size: 1.2em; color: #6c757d;"
+                              {% if is_read_only %}title="Read-only mode - cannot reorder rules"{% endif %}>
+                            ⋮⋮ {{ loop.index }}
+                        </span>
+                    </td>
+                    <td style="cursor: default;">
+                        <strong>
+                            {{ conditions[rule.field].label if conditions[rule.field] else rule.field }}
+                        </strong>
+                        
+                        {% if rule.match == 'include' %}
+                            includes
+                        {% elif rule.match == 'exclude' %}
+                            excludes
+                        {% elif rule.match == 'is_larger_than' %}
+                            is larger than
+                        {% elif rule.match == 'is_smaller_than' %}
+                            is smaller than
+                        {% else %}
+                            {{ rule.match }}
+                        {% endif %}
+                        
+                        <em>{{ rule.value | replace(',', ' OR ') }}</em>
+                        
+                        → <span class="badge badge-{{ 'success' if rule.action == 'accept' else 'danger' }}">
+                            {{ rule.action.title() }}
+                        </span>
+                    </td>
+                    <td style="cursor: default;">
+                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#rule-modal" data-action="edit" data-rule-index="{{ loop.index0 }}" data-rule='{{ rule | tojson | escape }}'
+                                {% if is_read_only %}disabled title="Read-only mode - cannot edit rules"{% endif %}>Edit</button>
+                        <a href="{{ url_for('filters.delete_clean_scenes_rule', rule_index=loop.index0) }}" class="btn btn-danger btn-sm"
+                           {% if is_read_only %}onclick="return false;" style="pointer-events: none; opacity: 0.5;" title="Read-only mode - cannot delete rules"{% else %}onclick="return confirm('Are you sure you want to delete this rule?')"{% endif %}>Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    <!-- Modal -->
+    <div class="modal fade" id="rule-modal" tabindex="-1" role="dialog" aria-labelledby="rule-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rule-modal-label">Add Rule</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="rule-form" method="post" action="{{ url_for('filters.add_clean_scenes_rule') }}">
+                        <div class="form-group">
+                            <label>Condition Type</label>
+                            <select name="condition-type" class="form-control condition-type" required>
+                                <option value="">Select Type</option>
+                                {% for key, condition in conditions.items() %}
+                                <option value="{{ key }}" data-toggle="tooltip" title="{{ condition.help_text }}">{{ condition.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Operator</label>
+                            <select name="condition-operator" class="form-control condition-operator" required>
+                                <option value="">Select Operator</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Value</label>
+                            <input type="text" name="condition-value" class="form-control condition-value" placeholder="Enter value (use commas for multiple: performer1,performer2)">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Action</label>
+                            <select name="action" class="form-control" required>
+                                <option value="accept">Accept - Keep scene in Stash</option>
+                                <option value="reject">Reject - Delete scene from Stash</option>
+                            </select>
+                        </div>
+
+                        <hr>
+                        <button type="submit" class="btn btn-primary">Save Rule</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        const conditions = JSON.parse('{{ conditions | tojson | safe }}');
+
+        function updateOperatorDropdown(typeDropdown, selectedOperator = '') {
+            const conditionKey = typeDropdown.value;
+            const operatorDropdown = document.querySelector('.condition-operator');
+            operatorDropdown.innerHTML = '<option value="">Select Operator</option>';
+            
+            if (conditionKey && conditions[conditionKey]) {
+                const operators = conditions[conditionKey].operators;
+                for (const op of operators) {
+                    const option = document.createElement('option');
+                    option.value = op;
+                    option.text = op.replace(/_/g, ' ');
+                    if (op === selectedOperator) {
+                        option.selected = true;
+                    }
+                    operatorDropdown.appendChild(option);
+                }
+            }
+        }
+
+        function updateValueInput(typeDropdown, value = '') {
+            const conditionKey = typeDropdown.value;
+            const valueInput = document.querySelector('.condition-value');
+            
+            if (conditionKey && conditions[conditionKey].type === 'none') {
+                valueInput.style.display = 'none';
+                valueInput.value = '';
+            } else {
+                valueInput.style.display = 'block';
+                valueInput.value = value || '';
+            }
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('condition-type')) {
+                updateOperatorDropdown(e.target);
+                updateValueInput(e.target);
+            }
+        });
+
+        $('#rule-modal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const action = button.data('action');
+            const modal = $(this);
+            const form = document.getElementById('rule-form');
+            console.log("Modal action:", action);
+
+            if (action === 'add') {
+                modal.find('.modal-title').text('Add Clean Rule');
+                form.action = "{{ url_for('filters.add_clean_scenes_rule') }}";
+                console.log("Form action set to:", form.action);
+                form.reset();
+                // Clear the operator dropdown when adding new rule
+                updateOperatorDropdown(form.querySelector('[name="condition-type"]'));
+            } else if (action === 'edit') {
+                modal.find('.modal-title').text('Edit Clean Rule');
+                const ruleIndex = button.data('rule-index');
+                const rule = button.data('rule');
+                form.action = `{{ url_for('filters.edit_clean_scenes_rule', rule_index=0).replace('0', '') }}${ruleIndex}`;
+                console.log("Form action set to:", form.action);
+                
+                console.log('Editing clean rule:', rule); // Debug log
+                
+                // Populate form with rule data using the correct field names
+                form.querySelector('[name="condition-type"]').value = rule.field || '';
+                form.querySelector('[name="condition-value"]').value = rule.value || '';
+                form.querySelector('[name="action"]').value = rule.action || 'reject';
+                
+                // Update operator dropdown with the correct match value
+                updateOperatorDropdown(form.querySelector('[name="condition-type"]'), rule.match);
+                updateValueInput(form.querySelector('[name="condition-type"]'), rule.value);
+            }
+        });
+
+        document.getElementById('rule-form').addEventListener('submit', function(e) {
+            console.log("Form submitted. Action:", this.action);
+            const formData = new FormData(this);
+            const data = {};
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+            console.log("Form data:", data);
+        });
+
+        // Sortable functionality
+        const tbody = document.getElementById('rules-tbody');
+        const isReadOnly = {{ is_read_only | tojson }};
+
+        if (!isReadOnly) {
+            new Sortable(tbody, {
+                animation: 150,
+                handle: '.drag-handle',
+                onEnd: function (evt) {
+                    const newOrder = Array.from(tbody.children).map(row => parseInt(row.dataset.id));
+                    fetch('{{ url_for('filters.reorder_clean_scenes_rules') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ order: newOrder }),
+                    }).then(() => {
+                        Array.from(tbody.children).forEach((row, index) => {
+                            const priorityCell = row.children.querySelector('.drag-handle');
+                            priorityCell.innerHTML = `⋮⋮ ${index + 1}`;
+                        });
+                    }).catch(() => {
+                        window.location.reload();
+                    });
+                },
+            });
+        }
+
+        // Run Now button functionality
+        $('.run-job-btn').click(function(e) {
+            e.preventDefault();
+
+            const button = $(this);
+            const jobName = button.data('job');
+            const url = button.data('url');
+
+            // Show loading state
+            button.prop('disabled', true);
+            button.find('.btn-text').addClass('d-none');
+            button.find('.btn-spinner').removeClass('d-none');
+
+            // Make the request
+            fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                resetButton(button);
+                return response.json().then(data => ({ ok: response.ok, data }));
+            })
+            .then(({ ok, data }) => {
+                if (ok) {
+                    showAlert('success', data.message || 'Job started successfully in the background.');
+                } else {
+                    showAlert('danger', data.message || 'An unknown error occurred.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resetButton(button);
+                showAlert('danger', `Error running job '${jobName}': ${error.message}`);
+            });
+        });
+
+        function resetButton(button) {
+            button.prop('disabled', false);
+            button.find('.btn-text').removeClass('d-none');
+            button.find('.btn-spinner').addClass('d-none');
+        }
+
+        function showAlert(type, message) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            `;
+            $('#flash-container').prepend(alertHtml);
+
+            // Auto-dismiss after 5 seconds (but allow manual close)
+            setTimeout(function() {
+                $('.alert:first').alert('close');
+            }, 5000);
+        }
+    </script>
+{% endblock %}

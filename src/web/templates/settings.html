@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Stash Manager - Settings{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+    <h1 class="mt-5">Settings</h1>
+</div>
+<p class="lead">This page allows you to configure the behavior of the Stash Manager.</p>
+
+<form method="post">
+    <!-- Add New Scenes Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_add_new_scenes" name="enable_add_new_scenes" {% if config.jobs.add_new_scenes.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enable_add_new_scenes">
+                    Add New Scenes
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="add_new_scenes_settings">
+            <div class="form-group">
+                <label for="add_new_scenes_schedule">Interval</label>
+                <select class="form-control" id="add_new_scenes_schedule" name="add_new_scenes_schedule">
+                    <option value="1-hour" {% if config.jobs.add_new_scenes.schedule == '1-hour' %}selected{% endif %}>1 hour</option>
+                    <option value="2-hours" {% if config.jobs.add_new_scenes.schedule == '2-hours' %}selected{% endif %}>2 hours</option>
+                    <option value="4-hours" {% if config.jobs.add_new_scenes.schedule == '4-hours' %}selected{% endif %}>4 hours</option>
+                    <option value="6-hours" {% if config.jobs.add_new_scenes.schedule == '6-hours' %}selected{% endif %}>6 hours</option>
+                    <option value="12-hours" {% if config.jobs.add_new_scenes.schedule == '12-hours' %}selected{% endif %}>12 hours</option>
+                    <option value="daily" {% if config.jobs.add_new_scenes.schedule == 'daily' %}selected{% endif %}>Daily</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="add_new_scenes_search_back_days">Only add scenes newer than (days)</label>
+                <input type="number" class="form-control" id="add_new_scenes_search_back_days" name="add_new_scenes_search_back_days" value="{{ config.jobs.add_new_scenes.search_back_days }}">
+            </div>
+        </div>
+    </div>
+
+    <!-- Clean Existing Scenes Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_clean_existing_scenes" name="enable_clean_existing_scenes" {% if config.jobs.clean_existing_scenes.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enable_clean_existing_scenes">
+                    Clean Existing Scenes
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="clean_existing_scenes_settings">
+            <div class="form-group">
+                <label for="clean_existing_scenes_schedule">Interval</label>
+                <select class="form-control" id="clean_existing_scenes_schedule" name="clean_existing_scenes_schedule">
+                    <option value="1-hour" {% if config.jobs.clean_existing_scenes.schedule == '1-hour' %}selected{% endif %}>1 hour</option>
+                    <option value="2-hours" {% if config.jobs.clean_existing_scenes.schedule == '2-hours' %}selected{% endif %}>2 hours</option>
+                    <option value="4-hours" {% if config.jobs.clean_existing_scenes.schedule == '4-hours' %}selected{% endif %}>4 hours</option>
+                    <option value="6-hours" {% if config.jobs.clean_existing_scenes.schedule == '6-hours' %}selected{% endif %}>6 hours</option>
+                    <option value="12-hours" {% if config.jobs.clean_existing_scenes.schedule == '12-hours' %}selected{% endif %}>12 hours</option>
+                    <option value="daily" {% if config.jobs.clean_existing_scenes.schedule == 'daily' %}selected{% endif %}>Daily</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Identify Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_identify" name="enable_identify" {% if config.jobs.scan_and_identify.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enable_identify">
+                    Identify
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="identify_settings">
+            <div class="form-group">
+                <label for="scan_and_identify_schedule">Interval</label>
+                <select class="form-control" id="scan_and_identify_schedule" name="scan_and_identify_schedule">
+                    <option value="1-hour" {% if config.jobs.scan_and_identify.schedule == '1-hour' %}selected{% endif %}>1 hour</option>
+                    <option value="2-hours" {% if config.jobs.scan_and_identify.schedule == '2-hours' %}selected{% endif %}>2 hours</option>
+                    <option value="4-hours" {% if config.jobs.scan_and_identify.schedule == '4-hours' %}selected{% endif %}>4 hours</option>
+                    <option value="6-hours" {% if config.jobs.scan_and_identify.schedule == '6-hours' %}selected{% endif %}>6 hours</option>
+                    <option value="12-hours" {% if config.jobs.scan_and_identify.schedule == '12-hours' %}selected{% endif %}>12 hours</option>
+                    <option value="daily" {% if config.jobs.scan_and_identify.schedule == 'daily' %}selected{% endif %}>Daily</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sources</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="identify_source_stashdb" name="identify_source_stashdb" {% if "stashdb" in config.identify.sources %}checked{% endif %}>
+                    <label class="form-check-label" for="identify_source_stashdb">
+                        StashDB
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="identify_source_tpdb" name="identify_source_tpdb" {% if "tpdb" in config.identify.sources %}checked{% endif %}>
+                    <label class="form-check-label" for="identify_source_tpdb">
+                        ThePornDB
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate Content Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="enable_generate_metadata" name="enable_generate_metadata" {% if config.jobs.generate_metadata.enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enable_generate_metadata">
+                    Generate Content
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="generate_metadata_settings">
+            <div class="form-group">
+                <label for="generate_metadata_schedule">Interval</label>
+                <select class="form-control" id="generate_metadata_schedule" name="generate_metadata_schedule">
+                    <option value="1-hour" {% if config.jobs.generate_metadata.schedule == '1-hour' %}selected{% endif %}>1 hour</option>
+                    <option value="2-hours" {% if config.jobs.generate_metadata.schedule == '2-hours' %}selected{% endif %}>2 hours</option>
+                    <option value="4-hours" {% if config.jobs.generate_metadata.schedule == '4-hours' %}selected{% endif %}>4 hours</option>
+                    <option value="6-hours" {% if config.jobs.generate_metadata.schedule == '6-hours' %}selected{% endif %}>6 hours</option>
+                    <option value="12-hours" {% if config.jobs.generate_metadata.schedule == '12-hours' %}selected{% endif %}>12 hours</option>
+                    <option value="daily" {% if config.jobs.generate_metadata.schedule == 'daily' %}selected{% endif %}>Daily</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- General Settings Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            General Settings
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="log_level">Log Level</label>
+                <select class="form-control" id="log_level" name="log_level">
+                    <option value="DEBUG" {% if config.logs.level == "DEBUG" %}selected{% endif %}>Debug</option>
+                    <option value="INFO" {% if config.logs.level == "INFO" %}selected{% endif %}>Info</option>
+                    <option value="WARNING" {% if config.logs.level == "WARNING" %}selected{% endif %}>Warning</option>
+                    <option value="ERROR" {% if config.logs.level == "ERROR" %}selected{% endif %}>Error</option>
+                </select>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run" {% if config.general.dry_run %}checked{% endif %}>
+                <label class="form-check-label" for="dry_run">
+                    Dry Run
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-4">Save Settings</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleSettings(checkboxId, settingsId) {
+        const checkbox = document.getElementById(checkboxId);
+        const settings = document.getElementById(settingsId);
+        settings.style.display = checkbox.checked ? 'block' : 'none';
+        checkbox.addEventListener('change', () => {
+            settings.style.display = checkbox.checked ? 'block' : 'none';
+        });
+    }
+
+    toggleSettings('enable_add_new_scenes', 'add_new_scenes_settings');
+    toggleSettings('enable_clean_existing_scenes', 'clean_existing_scenes_settings');
+    toggleSettings('enable_identify', 'identify_settings');
+    toggleSettings('enable_generate_metadata', 'generate_metadata_settings');
+</script>
+{% endblock %}
