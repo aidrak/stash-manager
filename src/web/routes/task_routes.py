@@ -114,14 +114,13 @@ def run_job(job_name):
             # Run the job in a background thread
             thread = threading.Thread(
                 target=add_new_scenes_to_whisparr,
-                args=(
-                    config,
-                    stashdb_api,
-                    start_date,
-                    end_date,
-                    dry_run,
-                    sort_direction,
-                ),
+                args=(config, stashdb_api),
+                kwargs={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "dry_run": dry_run,
+                    "sort_direction": sort_direction,
+                },
             )
             thread.start()
 

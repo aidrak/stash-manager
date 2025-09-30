@@ -93,6 +93,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
 .venv
 env/
 venv/
@@ -240,3 +241,6 @@ config/test_write.txt
 
 # VS Code workspace files
 *.code-workspace
+
+# Claude Code
+.claude/
